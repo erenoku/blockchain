@@ -27,8 +27,11 @@
     "@bsv/message-box-client": "^2.7.0",
     "@bsv/sdk": "^1.2.6",
     "cors": "^2.8.5",
+    "dompurify": "^3.4.17",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "katex": "^0.19.1",
+    "marked": "^18.1.2",
     "scrypt-ts": "^1.4.5",
     "ws": "^8.18.0"
   }

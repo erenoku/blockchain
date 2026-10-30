@@ -298,6 +298,7 @@
     const answerEl = el('ai-answer-content');
     resultCard.classList.remove('hidden');
     answerEl.textContent = '';
+    let answerMarkdown = '';
     el('token-usage-summary').textContent = '';
     const link = el('tx-explorer-link');
     link.href = `${channel.network === 'testnet' ? 'https://testnet.whatsonchain.com' : 'https://whatsonchain.com'}/tx/${channel.utxo.txid}`;
@@ -340,7 +341,9 @@
       });
       if (chunk.paidSats !== terms.stateSats) throw new Error('Provider farklı bir tutar kaydetti, durduruldu.');
 
-      answerEl.textContent += chunk.text;
+      // Re-render the whole answer so markdown split across chunks still formats correctly
+      answerMarkdown += chunk.text;
+      renderMarkdown(answerEl, answerMarkdown);
       state.lastStateSats = terms.stateSats;
       channel.paidSats = terms.stateSats;
       saveChannel();

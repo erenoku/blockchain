@@ -104,6 +104,15 @@ app.get('/vendor/bsv-sdk.js', (req, res) => {
   // The package "exports" map hides dist/umd, so require.resolve can't reach it
   res.sendFile(path.join(__dirname, '../../node_modules/@bsv/sdk/dist/umd/bundle.js'));
 });
+// Markdown rendering for AI answers: parser + HTML sanitizer, served locally rather than from a CDN
+app.get('/vendor/marked.js', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../node_modules/marked/lib/marked.umd.js'));
+});
+app.get('/vendor/purify.js', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../node_modules/dompurify/dist/purify.min.js'));
+});
+// LaTeX math in AI answers (KaTeX script, stylesheet and its fonts)
+app.use('/vendor/katex', express.static(path.join(__dirname, '../../node_modules/katex/dist')));
 
 const verifier = new PaymentVerifier(config.BSV_NETWORK);
 const explorer = new WhatsOnChainClient(config.BSV_NETWORK);

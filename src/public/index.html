@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BSV AI Token Swap | Decentralized Micro-Inference Pool</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -88,21 +89,6 @@
           </div>
         </div>
 
-        <!-- Recipient / Provider BSV Desktop Identity Key -->
-        <div class="input-group" style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); padding: 14px; border-radius: 12px; margin-bottom: 16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:8px; flex-wrap:wrap;">
-            <label for="recipient-identity-input" style="margin:0; color:#c7d2fe; font-weight:600;">🎯 Karşı Tarafın (Alıcı / Provider) BSV Desktop Identity Key'i:</label>
-            <div style="display:flex; gap:6px;">
-              <button type="button" id="btn-accept-incoming" class="btn-copy" style="background:#059669; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:0.75rem;">📥 Gelen Ödemeleri Cüzdana Al</button>
-              <button type="button" id="btn-use-my-identity" class="btn-copy" style="padding:4px 10px; border-radius:6px; cursor:pointer; font-size:0.75rem;">Kendi Cüzdanım (Test)</button>
-            </div>
-          </div>
-          <input type="text" id="recipient-identity-input" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff; font-family:'Fira Code', monospace; font-size:0.82rem;" placeholder="02... veya 03... ile başlayan 66 karakterli BSV Desktop Identity Key yapıştırın">
-          <div id="identity-helper-text" style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">
-            BSV Desktop <b>1...</b> klasik adreslerini taramaz; ödemenin karşı tarafın BSV Desktop cüzdanına (Transfer / Bakiye) düşmesi için karşı tarafın <b>Identity Key</b>'ini (BSV Desktop &rarr; <b>Identity</b> veya <b>Transfer</b> sekmesindeki <code>02...</code> / <code>03...</code> kodu) buraya yapıştırın.
-          </div>
-        </div>
-
         <!-- Prompt Input -->
         <div class="input-group">
           <label for="prompt-input">Your Question / Prompt for AI (ChatGPT / Gemini)</label>
@@ -121,11 +107,6 @@
           </select>
           <div id="quote-breakdown" style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">Fiyat hesaplanıyor...</div>
         </div>
-
-        <!-- Action Button -->
-        <button id="btn-request-invoice" class="btn btn-primary">
-          <span>⚡ Sor & BSV Desktop'ta Onayla</span>
-        </button>
 
         <!-- TokenChannel: smart contract payment channel (pay per streamed chunk) -->
         <div id="channel-panel" class="input-group" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 14px; border-radius: 12px; margin-top: 16px;">
@@ -148,65 +129,6 @@
           <div id="channel-locked-list" style="margin-top:10px;"></div>
         </div>
 
-        <!-- Payment Invoice Drawer / Modal (Hidden until invoice created) -->
-        <div id="invoice-modal" class="invoice-container hidden">
-          <div class="invoice-box">
-            <div class="invoice-header">
-              <h3>BSV Desktop Transferi Hazırlandı</h3>
-              <span class="status-tag auto-listening"><span class="pulse"></span> Mempool Dinleniyor...</span>
-            </div>
-
-            <div class="invoice-body">
-              <div class="qr-container">
-                <img id="invoice-qr" src="" alt="Payment QR Code">
-              </div>
-
-              <div class="invoice-details">
-                <!-- Deep-link Auto-Approve Button -->
-                <div class="app-redirect-box">
-                  <a id="btn-open-desktop-app" href="#" class="btn btn-launch">
-                    <span>🚀 BSV Desktop'ta Aç ve Sadece Onayla</span>
-                  </a>
-                  <p class="launch-hint">Yukarıdaki butona tıklayınca BSV Desktop cüzdanınız açılır, tutar (500 sat) ve adres otomatik doldurulur. Siz sadece <b>"Gönder / Onayla"</b> butonuna basarsınız.</p>
-                </div>
-
-                <div class="field-item">
-                  <span class="field-label">Provider BSV Adresi:</span>
-                  <div class="copy-field">
-                    <input type="text" id="inv-provider-address" readonly>
-                    <button class="btn-copy" onclick="copyText('inv-provider-address')">Kopyala</button>
-                  </div>
-                </div>
-
-                <div class="field-item">
-                  <span class="field-label">Gönderilecek Tutar:</span>
-                  <div class="copy-field">
-                    <input type="text" id="inv-amount-sats" readonly>
-                    <button class="btn-copy" onclick="copyText('inv-amount-sats')">Kopyala</button>
-                  </div>
-                </div>
-
-                <!-- Auto-detection notification -->
-                <div class="desktop-instructions highlight-auto">
-                  <div class="listening-bar">
-                    <div class="spinner"></div>
-                    <span id="auto-detect-status">BSV Desktop'tan Onayla'ya basmanız bekleniyor. Bastığınız an otomatik başlayacak!</span>
-                  </div>
-                </div>
-
-                <!-- Manual fallback option -->
-                <details class="manual-tx-details">
-                  <summary>Manuel TXID ile zorla çalıştır (İsteğe bağlı)</summary>
-                  <div class="manual-tx-content">
-                    <input type="text" id="input-txid" placeholder="İşlem ID'si (TXID)...">
-                    <button id="btn-verify-txid" class="btn btn-sm btn-accent">Doğrula</button>
-                  </div>
-                </details>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Result / AI Answer Card -->
         <div id="result-card" class="result-box hidden">
           <div class="result-header">
@@ -218,7 +140,7 @@
               <a id="tx-explorer-link" href="#" target="_blank" rel="noopener">WhatsOnChain'de Görüntüle ↗</a>
             </div>
           </div>
-          <div id="ai-answer-content" class="ai-text"></div>
+          <div id="ai-answer-content" class="ai-text markdown"></div>
           <div id="token-usage-summary" style="font-size:0.75rem; color:#9ca3af; margin-top:10px;"></div>
         </div>
       </section>
@@ -261,8 +183,11 @@
     </div>
   </main>
 
-  <script src="messagebox-bundle.js"></script>
   <script src="vendor/bsv-sdk.js"></script>
+  <script src="vendor/marked.js"></script>
+  <script src="vendor/purify.js"></script>
+  <script src="vendor/katex/katex.min.js"></script>
+  <script src="markdown.js"></script>
   <script src="channelClient.js"></script>
   <script src="app.js"></script>
   <script src="channelUi.js"></script>
