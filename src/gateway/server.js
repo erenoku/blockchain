@@ -10,6 +10,69 @@ const invoiceManager = require('./invoiceManager');
 const PaymentVerifier = require('../bsv/verifier');
 const WhatsOnChainClient = require('../bsv/explorer');
 const wallet = require('../bsv/wallet');
+const { MessageBoxClient } = require('../public/messagebox-bundle');
+
+function createNodeBridgeWalletClient() {
+  return new Proxy({}, {
+    get(_, method) {
+      if (method === 'then' || typeof method === 'symbol') return undefined;
+      return async (args = {}) => {
+        const res = await fetch(`http://127.0.0.1:3321/${String(method)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'http://localhost:3300'
+          },
+          body: JSON.stringify(args)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.message || data.description || `Wallet ${String(method)} failed (${res.status})`);
+        }
+        return data;
+      };
+    }
+  });
+}
+
+async function deliverPeerPayFromNode({ recipientIdentityKey, derivationPrefix, derivationSuffix, atomicBeef, amountSats }) {
+  if (!recipientIdentityKey || !/^(02|03)[0-9a-fA-F]{64}$/.test(recipientIdentityKey)) return false;
+  const paymentToken = {
+    customInstructions: {
+      derivationPrefix,
+      derivationSuffix
+    },
+    transaction: atomicBeef,
+    amount: amountSats,
+    outputIndex: 0
+  };
+  const walletClient = createNodeBridgeWalletClient();
+  const hosts = [
+    'https://messagebox.bsvblockchain.tech',
+    'https://message-box-us-1.bsvb.tech',
+    'https://messagebox.babbage.systems'
+  ];
+  let delivered = false;
+  for (const host of hosts) {
+    try {
+      const mbClient = new MessageBoxClient({
+        host,
+        walletClient,
+        enableLogging: true
+      });
+      await mbClient.sendLiveMessage({
+        recipient: recipientIdentityKey.toLowerCase(),
+        messageBox: 'payment_inbox',
+        body: JSON.stringify(paymentToken)
+      }, host);
+      console.log(`[Gateway PeerPay] Delivered payment token to ${recipientIdentityKey} on ${host}`);
+      delivered = true;
+    } catch (err) {
+      console.warn(`[Gateway PeerPay] Host ${host} warning:`, err.message);
+    }
+  }
+  return delivered;
+}
 
 const app = express();
 app.use(cors());
@@ -72,7 +135,7 @@ app.post('/api/providers/register', (req, res) => {
 
 // API: Create Invoice for AI Query
 app.post('/api/invoice', (req, res) => {
-  const { prompt, model } = req.body;
+  const { prompt, model, recipientIdentityKey } = req.body;
   if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
     return res.status(400).json({ error: 'Prompt is required' });
   }
@@ -90,6 +153,19 @@ app.post('/api/invoice', (req, res) => {
     prompt: prompt.trim(),
     provider
   });
+
+  if (recipientIdentityKey && typeof recipientIdentityKey === 'string') {
+    const cleaned = recipientIdentityKey.trim();
+    if (/^(02|03)[0-9a-fA-F]{64}$/.test(cleaned)) {
+      invoice.providerIdentityKey = cleaned.toLowerCase();
+      try {
+        invoice.providerAddress = wallet.PublicKey.fromString(invoice.providerIdentityKey).toAddress();
+      } catch (_) {}
+    } else if (/^[13mn][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(cleaned)) {
+      invoice.providerAddress = cleaned;
+      invoice.providerIdentityKey = null;
+    }
+  }
 
   const bsvAmount = (invoice.amountSats / 1e8).toFixed(8);
   const bip21Uri = `bitcoin:${invoice.providerAddress}?amount=${bsvAmount}&message=AI_Swap_${invoice.id}`;
@@ -133,6 +209,8 @@ app.post('/api/derive-locking-script', (req, res) => {
         if (senderIdentityKey) inv.senderIdentityKey = senderIdentityKey;
       }
     }
+
+    console.log(`[Gateway] BRC-29 derived P2PKH address: ${derivedAddress} (invoice: ${invoiceId || 'n/a'})`);
 
     res.json({
       success: true,
@@ -207,9 +285,20 @@ app.post('/api/verify', async (req, res) => {
           derivationPrefix: invoice.derivationPrefix,
           derivationSuffix: invoice.derivationSuffix,
           senderIdentityKey: senderIdentityKey || invoice.senderIdentityKey,
+          recipientIdentityKey: invoice.providerIdentityKey || null,
           outputIndex: 0
         }
       : null;
+
+    if (brc29Remittance && invoice.providerIdentityKey) {
+      deliverPeerPayFromNode({
+        recipientIdentityKey: invoice.providerIdentityKey,
+        derivationPrefix: invoice.derivationPrefix,
+        derivationSuffix: invoice.derivationSuffix,
+        atomicBeef,
+        amountSats: verificationResult.paidSats || invoice.amountSats
+      }).catch((e) => console.warn('[Gateway PeerPay] Async node delivery warning:', e.message));
+    }
 
     const execRes = await fetch(provider.endpoint, {
       method: 'POST',

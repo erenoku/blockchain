@@ -1,12 +1,181 @@
 let currentInvoice = null;
 let autoDetectTimer = null;
 
+// Create a BRC-100 WalletClient proxy backed directly by BSV Desktop on localhost:3321
+function createBridgeWalletClient() {
+  return new Proxy({}, {
+    get(_, method) {
+      if (method === 'then' || typeof method === 'symbol') return undefined;
+      return async (args = {}) => {
+        const res = await fetch(`http://localhost:3321/${String(method)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(args)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.message || data.description || `Wallet ${String(method)} failed (${res.status})`);
+        }
+        return data;
+      };
+    }
+  });
+}
+
+// Deliver BRC-29 PeerPay payment token to recipient's BSV Desktop payment_inbox via MessageBox
+async function deliverPeerPayTokenToRecipient({ recipientIdentityKey, derivationPrefix, derivationSuffix, atomicBeef, amountSats }) {
+  if (!window.messageBoxClient || !window.messageBoxClient.MessageBoxClient) {
+    console.warn('[PeerPay] messagebox-bundle.js not loaded');
+    return false;
+  }
+  if (!/^(02|03)[0-9a-fA-F]{64}$/.test(recipientIdentityKey)) {
+    return false;
+  }
+
+  const paymentToken = {
+    customInstructions: {
+      derivationPrefix,
+      derivationSuffix
+    },
+    transaction: atomicBeef,
+    amount: amountSats,
+    outputIndex: 0
+  };
+
+  const walletClient = createBridgeWalletClient();
+  const hosts = [
+    'https://messagebox.bsvblockchain.tech',
+    'https://message-box-us-1.bsvb.tech',
+    'https://messagebox.babbage.systems'
+  ];
+
+  let delivered = false;
+  for (const host of hosts) {
+    try {
+      const mbClient = new window.messageBoxClient.MessageBoxClient({
+        host,
+        walletClient,
+        enableLogging: true
+      });
+      await mbClient.sendLiveMessage({
+        recipient: recipientIdentityKey.toLowerCase(),
+        messageBox: 'payment_inbox',
+        body: JSON.stringify(paymentToken)
+      }, host);
+      console.log(`[PeerPay] Delivered payment token to ${recipientIdentityKey} via ${host}`);
+      delivered = true;
+    } catch (err) {
+      console.warn(`[PeerPay] Delivery via ${host} warning:`, err.message);
+    }
+  }
+  return delivered;
+}
+
+// Accept any pending incoming PeerPay payments in local BSV Desktop's payment_inbox
+async function acceptIncomingPeerPayPayments(showAlert = false) {
+  if (!window.messageBoxClient || !window.messageBoxClient.PeerPayClient) {
+    if (showAlert) alert('MessageBox istemcisi yüklenemedi.');
+    return 0;
+  }
+  const walletClient = createBridgeWalletClient();
+  const hosts = [
+    'https://messagebox.bsvblockchain.tech',
+    'https://message-box-us-1.bsvb.tech',
+    'https://messagebox.babbage.systems'
+  ];
+  let acceptedCount = 0;
+
+  for (const host of hosts) {
+    try {
+      const ppClient = new window.messageBoxClient.PeerPayClient({
+        messageBoxHost: host,
+        walletClient,
+        enableLogging: true
+      });
+      const incoming = await ppClient.listIncomingPayments(host);
+      if (Array.isArray(incoming) && incoming.length > 0) {
+        for (const p of incoming) {
+          try {
+            await ppClient.acceptPayment(p);
+            acceptedCount++;
+          } catch (acceptErr) {
+            console.warn('[PeerPay] acceptPayment warning:', acceptErr.message);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[PeerPay] listIncomingPayments on ${host} warning:`, err.message);
+    }
+  }
+
+  if (showAlert) {
+    if (acceptedCount > 0) {
+      alert(`✔ ${acceptedCount} adet gelen ödeme BSV Desktop cüzdan bakiyenize başarıyla eklendi!`);
+    } else {
+      alert('Bekleyen yeni bir gelen ödeme (payment_inbox) bulunamadı.');
+    }
+  }
+  return acceptedCount;
+}
+
 // Helpers
 function copyText(elementId) {
   const el = document.getElementById(elementId);
   el.select();
   navigator.clipboard.writeText(el.value);
   alert('Kopyalandı: ' + el.value);
+}
+
+// Initialize Recipient Identity Key field from localStorage
+const recipientInput = document.getElementById('recipient-identity-input');
+const savedRecipientKey = localStorage.getItem('bsv_recipient_identity_key');
+if (savedRecipientKey && recipientInput) {
+  recipientInput.value = savedRecipientKey;
+}
+if (recipientInput) {
+  recipientInput.addEventListener('input', () => {
+    localStorage.setItem('bsv_recipient_identity_key', recipientInput.value.trim());
+  });
+}
+
+// Button: Fill user's own BSV Desktop Identity Key for self-testing
+const btnUseMyIdentity = document.getElementById('btn-use-my-identity');
+if (btnUseMyIdentity) {
+  btnUseMyIdentity.addEventListener('click', async () => {
+    try {
+      const res = await fetch('http://localhost:3321/getPublicKey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identityKey: true })
+      });
+      const data = await res.json();
+      if (res.ok && data.publicKey) {
+        recipientInput.value = data.publicKey;
+        localStorage.setItem('bsv_recipient_identity_key', data.publicKey);
+        document.getElementById('identity-helper-text').innerHTML =
+          `<span style="color:#10b981;">✔ Kendi BSV Desktop Identity Key'iniz seçildi (<code>${data.publicKey.slice(0, 14)}...</code>). Gönderdiğiniz 500 satoshi aynı anda hem cüzdanınızdan çıkacak hem de <b>+500 satoshis</b> olarak geri girecek!</span>`;
+      } else {
+        alert('BSV Desktop açık değil veya Identity Key alınamadı.');
+      }
+    } catch (err) {
+      alert('BSV Desktop bağlantısı kurulamadı: ' + err.message);
+    }
+  });
+}
+
+// Button: Accept incoming payments from MessageBox payment_inbox into BSV Desktop
+const btnAcceptIncoming = document.getElementById('btn-accept-incoming');
+if (btnAcceptIncoming) {
+  btnAcceptIncoming.addEventListener('click', async () => {
+    btnAcceptIncoming.disabled = true;
+    btnAcceptIncoming.textContent = '⏳ Kontrol Ediliyor...';
+    try {
+      await acceptIncomingPeerPayPayments(true);
+    } finally {
+      btnAcceptIncoming.disabled = false;
+      btnAcceptIncoming.textContent = '📥 Gelen Ödemeleri Cüzdana Al';
+    }
+  });
 }
 
 // Fetch and render system status, active providers, and recent swaps
@@ -55,7 +224,9 @@ async function refreshState() {
             <span>${p.name}</span>
             <span class="pricing">${p.priceSats} sats</span>
           </div>
-          <div class="addr" title="${p.bsvAddress}">Payout: ${p.bsvAddress}</div>
+          <div class="addr" title="${p.identityKey || p.bsvAddress}">
+            ${p.identityKey ? `ID Key: ${p.identityKey.slice(0, 12)}...${p.identityKey.slice(-8)}` : `Payout: ${p.bsvAddress}`}
+          </div>
           <div style="font-size:0.75rem; color:#10b981;">● Online (${p.model})</div>
         </div>
       `).join('');
@@ -65,6 +236,11 @@ async function refreshState() {
         document.getElementById('display-fee-sats').textContent = `${best.priceSats} Sats`;
         const usd = ((best.priceSats * 50) / 1e8).toFixed(4);
         document.getElementById('display-fee-usd').textContent = `~$${usd} USD`;
+
+        // Pre-populate recipient Identity Key if empty
+        if (recipientInput && !recipientInput.value.trim() && best.identityKey) {
+          recipientInput.value = best.identityKey;
+        }
       }
     } else {
       provContainer.innerHTML = '<div class="empty-state">Aktif provider bulunamadı. Provider node çalıştırın!</div>';
@@ -78,6 +254,7 @@ async function refreshState() {
 document.getElementById('btn-request-invoice').addEventListener('click', async () => {
   const prompt = document.getElementById('prompt-input').value.trim();
   const model = document.getElementById('model-select').value;
+  const customRecipientKey = recipientInput ? recipientInput.value.trim() : '';
 
   if (!prompt) {
     alert('Lütfen bir soru/prompt yazın.');
@@ -93,7 +270,11 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
     const res = await fetch('/api/invoice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, model })
+      body: JSON.stringify({
+        prompt,
+        model,
+        recipientIdentityKey: customRecipientKey || undefined
+      })
     });
 
     const data = await res.json();
@@ -114,9 +295,12 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
     try {
       let targetLockingScript = data.lockingScriptHex;
       let senderIdentityKey = null;
+      const targetIdentityKey = (customRecipientKey && /^(02|03)[0-9a-fA-F]{64}$/.test(customRecipientKey))
+        ? customRecipientKey.toLowerCase()
+        : data.providerIdentityKey;
 
-      // BRC-29 Wallet-to-Wallet Derivation (so Provider's BSV Desktop immediately sees +500 satoshis via internalizeAction)
-      if (data.providerIdentityKey && data.derivationPrefix && data.derivationSuffix) {
+      // BRC-29 Wallet-to-Wallet Derivation (so recipient's BSV Desktop receives the UTXO via PeerPay / internalizeAction)
+      if (targetIdentityKey && data.derivationPrefix && data.derivationSuffix) {
         try {
           const idRes = await fetch('http://localhost:3321/getPublicKey', {
             method: 'POST',
@@ -134,7 +318,7 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
             body: JSON.stringify({
               protocolID: [2, '3241645161d8'],
               keyID: `${data.derivationPrefix} ${data.derivationSuffix}`,
-              counterparty: data.providerIdentityKey
+              counterparty: targetIdentityKey
             })
           });
 
@@ -154,12 +338,18 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
                 const scriptData = await scriptRes.json();
                 targetLockingScript = scriptData.lockingScriptHex;
                 document.getElementById('inv-provider-address').value = scriptData.address;
-                console.log('[BSV Desktop Bridge] Derived BRC-29 payment address:', scriptData.address);
+                console.log('[BSV Desktop Bridge] Derived BRC-29 payment address:', scriptData.address, 'for recipient:', targetIdentityKey);
+              } else {
+                const errObj = await scriptRes.json().catch(() => ({}));
+                throw new Error(`BRC-29 script derivation failed: ${errObj.error || scriptRes.status}`);
               }
             }
+          } else {
+            throw new Error(`BSV Desktop BRC-29 getPublicKey failed (${brc29Res.status})`);
           }
         } catch (brc29Err) {
-          console.warn('[BSV Desktop Bridge] BRC-29 derivation fallback to static address:', brc29Err.message);
+          console.error('[BSV Desktop Bridge] BRC-29 derivation error:', brc29Err.message);
+          throw brc29Err;
         }
       }
 
@@ -175,11 +365,19 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
         },
         body: JSON.stringify({
           description: `Payment for AI Query (${data.model})`,
+          labels: ['peerpay', 'brc29'],
           outputs: [
             {
               satoshis: data.amountSats,
               lockingScript: targetLockingScript,
-              outputDescription: `AI compute fee to ${data.providerName}`
+              outputDescription: `AI compute fee to ${data.providerName}`,
+              ...(targetIdentityKey ? {
+                customInstructions: JSON.stringify({
+                  derivationPrefix: data.derivationPrefix,
+                  derivationSuffix: data.derivationSuffix,
+                  payee: targetIdentityKey
+                })
+              } : {})
             }
           ],
           options: {
@@ -201,7 +399,23 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
 
         if (txid && typeof txid === 'string' && txid.length === 64) {
           console.log('[BSV Desktop Bridge] Payment signed & broadcast! TXID:', txid);
-          btn.innerHTML = '<span>✔ 500 Sats Gönderildi! Gemini Yanıtlıyor...</span>';
+          btn.innerHTML = '<span>✔ 500 Sats Gönderildi! Karşı Cüzdana & Gemini\'ye İletiliyor...</span>';
+
+          // Deliver PeerPay payment token to recipient's BSV Desktop MessageBox (payment_inbox)
+          if (targetIdentityKey && Array.isArray(bridgeData.tx)) {
+            deliverPeerPayTokenToRecipient({
+              recipientIdentityKey: targetIdentityKey,
+              derivationPrefix: data.derivationPrefix,
+              derivationSuffix: data.derivationSuffix,
+              atomicBeef: bridgeData.tx,
+              amountSats: data.amountSats
+            }).then((delivered) => {
+              const helperEl = document.getElementById('identity-helper-text');
+              if (helperEl && delivered) {
+                helperEl.innerHTML = `<span style="color:#10b981;">✔ <b>${data.amountSats} satoshi</b> hem blokzincire (WhatsOnChain) yazıldı hem de <code>${targetIdentityKey.slice(0, 12)}...</code> cüzdanının BSV Desktop <b>Transfer (payment_inbox)</b> kutusuna iletildi!</span>`;
+              }
+            }).catch((e) => console.warn('[PeerPay] Async delivery error:', e));
+          }
 
           // Send TXID + AtomicBEEF (bridgeData.tx) to Gateway for instant 0ms verification & Gemini execution!
           await executeVerification({

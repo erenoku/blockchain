@@ -3,6 +3,8 @@ const { PrivateKey, PublicKey, P2PKH, Transaction } = require('@bsv/sdk');
 class WalletService {
   constructor() {
     this.p2pkh = new P2PKH();
+    this.PublicKey = PublicKey;
+    this.PrivateKey = PrivateKey;
   }
 
   /**

@@ -13,45 +13,43 @@ class ProviderAgent {
     this.gatewayUrl = options.gatewayUrl || process.env.GATEWAY_URL || 'http://localhost:3000';
     this.port = parseInt(options.port || process.env.PROVIDER_PORT || '4001', 10);
 
+    this.identityKey = options.identityKey || process.env.PROVIDER_IDENTITY_KEY || null;
+
+    // If PROVIDER_BSV_ADDRESS was given as a 66-char BSV Desktop Identity Key (02.../03...), extract both
+    if (/^(02|03)[0-9a-fA-F]{64}$/.test(this.bsvAddress.trim())) {
+      this.identityKey = this.bsvAddress.trim().toLowerCase();
+      try {
+        this.bsvAddress = wallet.PublicKey.fromString(this.identityKey).toAddress();
+      } catch (_) {}
+    } else if (this.identityKey && /^(02|03)[0-9a-fA-F]{64}$/.test(this.identityKey.trim())) {
+      this.identityKey = this.identityKey.trim().toLowerCase();
+      if (!this.bsvAddress || this.bsvAddress === '1AHWWewBWSpYuhFzscuotwCQvnoZQ5e4xU') {
+        try {
+          this.bsvAddress = wallet.PublicKey.fromString(this.identityKey).toAddress();
+        } catch (_) {}
+      }
+    }
+
     // If no address provided, generate a default one for quick demo testing
     if (!this.bsvAddress) {
       console.warn('[Provider] Warning: PROVIDER_BSV_ADDRESS not set. Generating a demo address.');
       const demoWallet = wallet.generateKeypair();
       this.bsvAddress = demoWallet.address;
       console.log(`[Provider] Generated fallback demo address: ${this.bsvAddress}`);
-      console.log(`[Provider] (To receive real BSV Desktop satoshis, set PROVIDER_BSV_ADDRESS=<your_address> in .env)`);
+      console.log(`[Provider] (To receive real BSV Desktop satoshis, set PROVIDER_IDENTITY_KEY=<02... or 03...> in .env)`);
     }
 
     this.gemini = new GeminiService(this.geminiApiKey, this.model);
     this.app = express();
     this.app.use(express.json({ limit: '10mb' }));
     this.id = `provider_${Math.random().toString(36).substring(2, 9)}`;
-    this.identityKey = options.identityKey || process.env.PROVIDER_IDENTITY_KEY || null;
     this.server = null;
     this.heartbeatTimer = null;
   }
 
   async detectBsvDesktopIdentityKey() {
-    if (this.identityKey) return this.identityKey;
-    try {
-      const res = await fetch('http://127.0.0.1:3321/getPublicKey', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Origin': 'http://localhost:3300'
-        },
-        body: JSON.stringify({ identityKey: true })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.publicKey) {
-          this.identityKey = data.publicKey;
-          console.log(`[Provider] Connected to local BSV Desktop Identity Key: ${this.identityKey}`);
-        }
-      }
-    } catch (_) {
-      // BSV Desktop not running on provider machine or unreachable; static address mode still works
-    }
+    // Only use explicit PROVIDER_IDENTITY_KEY from .env so we don't accidentally
+    // overwrite with the Buyer's own BSV Desktop Identity Key when running on the same laptop.
     return this.identityKey;
   }
 
@@ -81,7 +79,7 @@ class ProviderAgent {
       console.log(`  - TXID: ${txid}`);
       console.log(`  - Prompt: "${prompt.slice(0, 60)}..."`);
 
-      // If BRC-29 remittance data is included, internalize payment into Provider's BSV Desktop wallet
+      // If BRC-29 remittance data is included, internalize payment into Provider's BSV Desktop wallet (if running on the recipient machine)
       if (
         brc29Remittance &&
         Array.isArray(brc29Remittance.atomicBeef) &&
@@ -90,34 +88,50 @@ class ProviderAgent {
         brc29Remittance.senderIdentityKey
       ) {
         try {
-          const intRes = await fetch('http://127.0.0.1:3321/internalizeAction', {
+          const idRes = await fetch('http://127.0.0.1:3321/getPublicKey', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Origin': 'http://localhost:3300'
             },
-            body: JSON.stringify({
-              tx: brc29Remittance.atomicBeef,
-              outputs: [
-                {
-                  outputIndex: brc29Remittance.outputIndex || 0,
-                  protocol: 'wallet payment',
-                  paymentRemittance: {
-                    derivationPrefix: brc29Remittance.derivationPrefix,
-                    derivationSuffix: brc29Remittance.derivationSuffix,
-                    senderIdentityKey: brc29Remittance.senderIdentityKey
-                  }
-                }
-              ],
-              description: `AI Query Payment (${this.model})`,
-              labels: ['brc29', 'ai-swap']
-            })
+            body: JSON.stringify({ identityKey: true })
           });
-          const intData = await intRes.json().catch(() => ({}));
-          if (intRes.ok) {
-            console.log(`[Provider] BSV Desktop internalized +${this.priceSats} sats! Status:`, intData);
+          const idData = await idRes.json().catch(() => ({}));
+          const localIdKey = (idData.publicKey || '').toLowerCase();
+          const targetRecipientKey = (brc29Remittance.recipientIdentityKey || '').toLowerCase();
+
+          if (!targetRecipientKey || localIdKey === targetRecipientKey) {
+            const intRes = await fetch('http://127.0.0.1:3321/internalizeAction', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Origin': 'http://localhost:3300'
+              },
+              body: JSON.stringify({
+                tx: brc29Remittance.atomicBeef,
+                outputs: [
+                  {
+                    outputIndex: brc29Remittance.outputIndex || 0,
+                    protocol: 'wallet payment',
+                    paymentRemittance: {
+                      derivationPrefix: brc29Remittance.derivationPrefix,
+                      derivationSuffix: brc29Remittance.derivationSuffix,
+                      senderIdentityKey: brc29Remittance.senderIdentityKey
+                    }
+                  }
+                ],
+                description: `AI Query Payment (${this.model})`,
+                labels: ['brc29', 'ai-swap']
+              })
+            });
+            const intData = await intRes.json().catch(() => ({}));
+            if (intRes.ok) {
+              console.log(`[Provider] BSV Desktop internalized +${this.priceSats} sats! Status:`, intData);
+            } else {
+              console.warn(`[Provider] BSV Desktop internalizeAction warning:`, intData);
+            }
           } else {
-            console.warn(`[Provider] BSV Desktop internalizeAction warning:`, intData);
+            console.log(`[Provider] Recipient (${targetRecipientKey.slice(0, 14)}...) is on a remote BSV Desktop. Delivered via MessageBox payment_inbox.`);
           }
         } catch (intErr) {
           console.warn(`[Provider] Could not internalize into local BSV Desktop: ${intErr.message}`);

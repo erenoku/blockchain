@@ -77,6 +77,21 @@
           </div>
         </div>
 
+        <!-- Recipient / Provider BSV Desktop Identity Key -->
+        <div class="input-group" style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); padding: 14px; border-radius: 12px; margin-bottom: 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:8px; flex-wrap:wrap;">
+            <label for="recipient-identity-input" style="margin:0; color:#c7d2fe; font-weight:600;">🎯 Karşı Tarafın (Alıcı / Provider) BSV Desktop Identity Key'i:</label>
+            <div style="display:flex; gap:6px;">
+              <button type="button" id="btn-accept-incoming" class="btn-copy" style="background:#059669; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer; font-size:0.75rem;">📥 Gelen Ödemeleri Cüzdana Al</button>
+              <button type="button" id="btn-use-my-identity" class="btn-copy" style="padding:4px 10px; border-radius:6px; cursor:pointer; font-size:0.75rem;">Kendi Cüzdanım (Test)</button>
+            </div>
+          </div>
+          <input type="text" id="recipient-identity-input" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff; font-family:'Fira Code', monospace; font-size:0.82rem;" placeholder="02... veya 03... ile başlayan 66 karakterli BSV Desktop Identity Key yapıştırın">
+          <div id="identity-helper-text" style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">
+            BSV Desktop <b>1...</b> klasik adreslerini taramaz; ödemenin karşı tarafın BSV Desktop cüzdanına (Transfer / Bakiye) düşmesi için karşı tarafın <b>Identity Key</b>'ini (BSV Desktop &rarr; <b>Identity</b> veya <b>Transfer</b> sekmesindeki <code>02...</code> / <code>03...</code> kodu) buraya yapıştırın.
+          </div>
+        </div>
+
         <!-- Prompt Input -->
         <div class="input-group">
           <label for="prompt-input">Your Question / Prompt for Gemini Pro</label>
@@ -85,7 +100,7 @@
 
         <!-- Action Button -->
         <button id="btn-request-invoice" class="btn btn-primary">
-          <span>⚡ Sor & BSV Desktop'a Aktar</span>
+          <span>⚡ Sor & BSV Desktop'ta Onayla</span>
         </button>
 
         <!-- Payment Invoice Drawer / Modal (Hidden until invoice created) -->
@@ -189,6 +204,7 @@
     </div>
   </main>
 
+  <script src="messagebox-bundle.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -21,6 +21,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@bsv/message-box-client": "^2.7.0",
     "@bsv/sdk": "^1.2.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
