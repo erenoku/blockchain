@@ -14,9 +14,21 @@ class ProviderAgent {
     this.port = parseInt(options.port || process.env.PROVIDER_PORT || '4001', 10);
 
     this.identityKey = options.identityKey || process.env.PROVIDER_IDENTITY_KEY || null;
+    this.bsvAddress = this.bsvAddress.trim();
+
+    // Validate Identity Key: must be a 66-char compressed public key (02/03 + 64 hex chars)
+    if (this.identityKey && !/^(02|03)[0-9a-fA-F]{64}$/.test(this.identityKey.trim())) {
+      console.error(`[Provider] ERROR: PROVIDER_IDENTITY_KEY is invalid (${this.identityKey.trim().length} chars, expected 66 hex chars starting with 02/03). Ignoring it.`);
+      this.identityKey = null;
+    }
+    // Validate payout value: must be a base58 P2PKH address or a 66-char Identity Key
+    if (this.bsvAddress && !/^(02|03)[0-9a-fA-F]{64}$/.test(this.bsvAddress) && !wallet.isValidAddress(this.bsvAddress)) {
+      console.error(`[Provider] ERROR: PROVIDER_BSV_ADDRESS "${this.bsvAddress.slice(0, 12)}..." is neither a valid BSV address nor a 66-char Identity Key (${this.bsvAddress.length} chars). Ignoring it.`);
+      this.bsvAddress = '';
+    }
 
     // If PROVIDER_BSV_ADDRESS was given as a 66-char BSV Desktop Identity Key (02.../03...), extract both
-    if (/^(02|03)[0-9a-fA-F]{64}$/.test(this.bsvAddress.trim())) {
+    if (/^(02|03)[0-9a-fA-F]{64}$/.test(this.bsvAddress)) {
       this.identityKey = this.bsvAddress.trim().toLowerCase();
       try {
         this.bsvAddress = wallet.PublicKey.fromString(this.identityKey).toAddress();
@@ -35,6 +47,7 @@ class ProviderAgent {
       console.warn('[Provider] Warning: PROVIDER_BSV_ADDRESS not set. Generating a demo address.');
       const demoWallet = wallet.generateKeypair();
       this.bsvAddress = demoWallet.address;
+      this.payoutIsDemo = true;
       console.log(`[Provider] Generated fallback demo address: ${this.bsvAddress}`);
       console.log(`[Provider] (To receive real BSV Desktop satoshis, set PROVIDER_IDENTITY_KEY=<02... or 03...> in .env)`);
     }
@@ -62,6 +75,7 @@ class ProviderAgent {
         model: this.model,
         bsvAddress: this.bsvAddress,
         identityKey: this.identityKey,
+        payoutIsDemo: !!this.payoutIsDemo,
         priceSats: this.priceSats
       });
     });
@@ -164,6 +178,7 @@ class ProviderAgent {
         model: this.model,
         bsvAddress: this.bsvAddress,
         identityKey: this.identityKey,
+        payoutIsDemo: !!this.payoutIsDemo,
         priceSats: this.priceSats,
         endpoint: `http://localhost:${this.port}/execute`
       };

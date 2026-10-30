@@ -1,74 +1,97 @@
 let currentInvoice = null;
 let autoDetectTimer = null;
 
+// Safe JSON fetch wrapper that never throws "JSON.parse: unexpected character"
+async function safeFetchJson(url, options = {}) {
+  const headers = {
+    'Accept': 'application/json',
+    ...(options.headers || {})
+  };
+  if (options.body && typeof options.body === 'string' && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(url, { ...options, headers });
+  const text = await res.text();
+  let json = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch (_) {
+    throw new Error(`[HTTP ${res.status}] ${text.slice(0, 150) || res.statusText || 'Geçersiz yanıt'}`);
+  }
+  if (!res.ok) {
+    throw new Error(json.message || json.description || json.error || `[HTTP ${res.status}] ${text.slice(0, 100)}`);
+  }
+  return json;
+}
+
 // Create a BRC-100 WalletClient proxy backed directly by BSV Desktop on localhost:3321
 function createBridgeWalletClient() {
   return new Proxy({}, {
     get(_, method) {
       if (method === 'then' || typeof method === 'symbol') return undefined;
       return async (args = {}) => {
-        const res = await fetch(`http://localhost:3321/${String(method)}`, {
+        return await safeFetchJson(`http://localhost:3321/${String(method)}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(args)
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data.message || data.description || `Wallet ${String(method)} failed (${res.status})`);
-        }
-        return data;
       };
     }
   });
 }
 
-// Deliver BRC-29 PeerPay payment token to recipient's BSV Desktop payment_inbox via MessageBox
+// Deliver BRC-29 PeerPay payment token to recipient's BSV Desktop payment_inbox via MessageBox.
+// First resolves the recipient's advertised MessageBox host (where their BSV Desktop listens),
+// then falls back through known hosts. Returns { delivered, host, messageId, errors }.
+const MESSAGEBOX_HOSTS = [
+  'https://messagebox.bsvblockchain.tech',
+  'https://message-box-us-1.bsvb.tech',
+  'https://messagebox.babbage.systems'
+];
+
 async function deliverPeerPayTokenToRecipient({ recipientIdentityKey, derivationPrefix, derivationSuffix, atomicBeef, amountSats }) {
+  const result = { delivered: false, host: null, messageId: null, errors: [] };
   if (!window.messageBoxClient || !window.messageBoxClient.MessageBoxClient) {
-    console.warn('[PeerPay] messagebox-bundle.js not loaded');
-    return false;
+    result.errors.push('messagebox-bundle.js not loaded');
+    return result;
   }
   if (!/^(02|03)[0-9a-fA-F]{64}$/.test(recipientIdentityKey)) {
-    return false;
+    result.errors.push('invalid recipient identity key');
+    return result;
   }
 
-  const paymentToken = {
-    customInstructions: {
-      derivationPrefix,
-      derivationSuffix
-    },
-    transaction: atomicBeef,
-    amount: amountSats,
-    outputIndex: 0
+  const message = {
+    recipient: recipientIdentityKey.toLowerCase(),
+    messageBox: 'payment_inbox',
+    body: JSON.stringify({
+      customInstructions: { derivationPrefix, derivationSuffix },
+      transaction: atomicBeef,
+      amount: amountSats,
+      outputIndex: 0
+    })
   };
 
   const walletClient = createBridgeWalletClient();
-  const hosts = [
-    'https://messagebox.bsvblockchain.tech',
-    'https://message-box-us-1.bsvb.tech',
-    'https://messagebox.babbage.systems'
-  ];
-
-  let delivered = false;
-  for (const host of hosts) {
+  const attempts = [{ label: 'advertised', override: undefined }, ...MESSAGEBOX_HOSTS.slice(1).map(h => ({ label: h, override: h }))];
+  for (const attempt of attempts) {
     try {
       const mbClient = new window.messageBoxClient.MessageBoxClient({
-        host,
+        host: MESSAGEBOX_HOSTS[0],
         walletClient,
         enableLogging: true
       });
-      await mbClient.sendLiveMessage({
-        recipient: recipientIdentityKey.toLowerCase(),
-        messageBox: 'payment_inbox',
-        body: JSON.stringify(paymentToken)
-      }, host);
-      console.log(`[PeerPay] Delivered payment token to ${recipientIdentityKey} via ${host}`);
-      delivered = true;
+      const usedHost = attempt.override || await mbClient.resolveHostForRecipient(message.recipient).catch(() => MESSAGEBOX_HOSTS[0]);
+      const sent = await mbClient.sendMessage(message, usedHost);
+      result.delivered = true;
+      result.host = usedHost;
+      result.messageId = sent?.messageId || null;
+      console.log(`[PeerPay] ✔ Delivered payment token to ${recipientIdentityKey} via ${usedHost} (messageId: ${result.messageId})`);
+      return result;
     } catch (err) {
-      console.warn(`[PeerPay] Delivery via ${host} warning:`, err.message);
+      console.warn(`[PeerPay] ${attempt.label} delivery failed:`, err.message);
+      result.errors.push(`${attempt.label}: ${err.message}`);
     }
   }
-  return delivered;
+  return result;
 }
 
 // Accept any pending incoming PeerPay payments in local BSV Desktop's payment_inbox
@@ -78,11 +101,7 @@ async function acceptIncomingPeerPayPayments(showAlert = false) {
     return 0;
   }
   const walletClient = createBridgeWalletClient();
-  const hosts = [
-    'https://messagebox.bsvblockchain.tech',
-    'https://message-box-us-1.bsvb.tech',
-    'https://messagebox.babbage.systems'
-  ];
+  const hosts = MESSAGEBOX_HOSTS;
   let acceptedCount = 0;
 
   for (const host of hosts) {
@@ -181,9 +200,7 @@ if (btnAcceptIncoming) {
 // Fetch and render system status, active providers, and recent swaps
 async function refreshState() {
   try {
-    const res = await fetch('/api/status');
-    if (!res.ok) return;
-    const data = await res.json();
+    const data = await safeFetchJson('/api/status');
 
     document.getElementById('network-badge').textContent = `BSV ${data.network.toUpperCase()}`;
     document.getElementById('provider-count').textContent = data.activeProviders;
@@ -207,14 +224,12 @@ async function refreshState() {
       swapsContainer.innerHTML = '<div class="empty-state">Henüz swap yok. İlk swapı yapın!</div>';
     }
   } catch (err) {
-    console.warn('Status refresh error:', err);
+    // Silently ignore polling network errors when servers restart
   }
 
   // Refresh Providers list
   try {
-    const res = await fetch('/api/providers');
-    if (!res.ok) return;
-    const data = await res.json();
+    const data = await safeFetchJson('/api/providers');
 
     const provContainer = document.getElementById('providers-list');
     if (data.providers && data.providers.length > 0) {
@@ -246,7 +261,7 @@ async function refreshState() {
       provContainer.innerHTML = '<div class="empty-state">Aktif provider bulunamadı. Provider node çalıştırın!</div>';
     }
   } catch (err) {
-    console.warn('Providers refresh error:', err);
+    // Silently ignore polling network errors when servers restart
   }
 }
 
@@ -262,25 +277,26 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
   }
 
   const btn = document.getElementById('btn-request-invoice');
+
+  // Validate recipient Identity Key before doing anything (must be 66 hex chars: 02/03 + 64)
+  if (customRecipientKey && !/^(02|03)[0-9a-fA-F]{64}$/.test(customRecipientKey) && !/^[13mn][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(customRecipientKey)) {
+    alert(`Alıcı Identity Key geçersiz: ${customRecipientKey.length} karakter girildi, 66 karakter olmalı (02 veya 03 ile başlayan hex).\n\nKarşı bilgisayardaki BSV Desktop'tan Identity Key'i eksiksiz tekrar kopyalayın.`);
+    return;
+  }
+
   btn.disabled = true;
   btn.innerHTML = '<span>⚡ BSV Desktop Bağlanıyor...</span>';
 
   try {
     // 1. Get invoice and locking script from Gateway
-    const res = await fetch('/api/invoice', {
+    const data = await safeFetchJson('/api/invoice', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt,
         model,
         recipientIdentityKey: customRecipientKey || undefined
       })
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Fatura oluşturulamadı');
-    }
 
     currentInvoice = data;
 
@@ -302,19 +318,18 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
       // BRC-29 Wallet-to-Wallet Derivation (so recipient's BSV Desktop receives the UTXO via PeerPay / internalizeAction)
       if (targetIdentityKey && data.derivationPrefix && data.derivationSuffix) {
         try {
-          const idRes = await fetch('http://localhost:3321/getPublicKey', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identityKey: true })
-          });
-          if (idRes.ok) {
-            const idData = await idRes.json();
+          try {
+            const idData = await safeFetchJson('http://localhost:3321/getPublicKey', {
+              method: 'POST',
+              body: JSON.stringify({ identityKey: true })
+            });
             senderIdentityKey = idData.publicKey;
+          } catch (e) {
+            console.warn('[BSV Desktop Bridge] Could not fetch sender identityKey:', e.message);
           }
 
-          const brc29Res = await fetch('http://localhost:3321/getPublicKey', {
+          const brc29Data = await safeFetchJson('http://localhost:3321/getPublicKey', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               protocolID: [2, '3241645161d8'],
               keyID: `${data.derivationPrefix} ${data.derivationSuffix}`,
@@ -322,34 +337,23 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
             })
           });
 
-          if (brc29Res.ok) {
-            const brc29Data = await brc29Res.json();
-            if (brc29Data.publicKey) {
-              const scriptRes = await fetch('/api/derive-locking-script', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  invoiceId: data.invoiceId,
-                  publicKey: brc29Data.publicKey,
-                  senderIdentityKey
-                })
-              });
-              if (scriptRes.ok) {
-                const scriptData = await scriptRes.json();
-                targetLockingScript = scriptData.lockingScriptHex;
-                document.getElementById('inv-provider-address').value = scriptData.address;
-                console.log('[BSV Desktop Bridge] Derived BRC-29 payment address:', scriptData.address, 'for recipient:', targetIdentityKey);
-              } else {
-                const errObj = await scriptRes.json().catch(() => ({}));
-                throw new Error(`BRC-29 script derivation failed: ${errObj.error || scriptRes.status}`);
-              }
-            }
-          } else {
-            throw new Error(`BSV Desktop BRC-29 getPublicKey failed (${brc29Res.status})`);
+          if (brc29Data && brc29Data.publicKey) {
+            const scriptData = await safeFetchJson('/api/derive-locking-script', {
+              method: 'POST',
+              body: JSON.stringify({
+                invoiceId: data.invoiceId,
+                publicKey: brc29Data.publicKey,
+                senderIdentityKey
+              })
+            });
+            targetLockingScript = scriptData.lockingScriptHex;
+            document.getElementById('inv-provider-address').value = scriptData.address;
+            console.log('[BSV Desktop Bridge] Derived BRC-29 payment address:', scriptData.address, 'for recipient:', targetIdentityKey);
           }
         } catch (brc29Err) {
-          console.error('[BSV Desktop Bridge] BRC-29 derivation error:', brc29Err.message);
-          throw brc29Err;
+          // Do NOT fall back to a plain P2PKH script here: the recipient's BSV Desktop can only
+          // internalize outputs locked to the BRC-29 derived key. Abort with a clear error instead.
+          throw new Error(`BRC-29 anahtar türetme başarısız, ödeme gönderilmedi: ${brc29Err.message}`);
         }
       }
 
@@ -358,11 +362,8 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
         fetch('/api/focus-wallet', { method: 'POST' }).catch(() => {});
       }, 400);
 
-      const bridgeRes = await fetch('http://localhost:3321/createAction', {
+      const bridgeData = await safeFetchJson('http://localhost:3321/createAction', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           description: `Payment for AI Query (${data.model})`,
           labels: ['peerpay', 'brc29'],
@@ -387,50 +388,51 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
       });
 
       clearTimeout(focusTimer);
-
-      const bridgeData = await bridgeRes.json();
       console.log('[BSV Desktop Bridge] Response:', bridgeData);
 
-      if (bridgeRes.ok) {
-        // Extraction of TXID from BSV Desktop response
-        const txid = bridgeData.txid ||
-                     bridgeData.sendWithResults?.[0]?.txid ||
-                     (typeof bridgeData.tx === 'string' ? bridgeData.tx : null);
+      // Extraction of TXID from BSV Desktop response
+      const txid = bridgeData.txid ||
+                   bridgeData.sendWithResults?.[0]?.txid ||
+                   (typeof bridgeData.tx === 'string' ? bridgeData.tx : null);
 
-        if (txid && typeof txid === 'string' && txid.length === 64) {
-          console.log('[BSV Desktop Bridge] Payment signed & broadcast! TXID:', txid);
-          btn.innerHTML = '<span>✔ 500 Sats Gönderildi! Karşı Cüzdana & Gemini\'ye İletiliyor...</span>';
+      if (txid && typeof txid === 'string' && txid.length === 64) {
+        console.log('[BSV Desktop Bridge] Payment signed & broadcast! TXID:', txid);
+        btn.innerHTML = '<span>✔ 500 Sats Gönderildi! Karşı Cüzdana & Gemini\'ye İletiliyor...</span>';
 
-          // Deliver PeerPay payment token to recipient's BSV Desktop MessageBox (payment_inbox)
-          if (targetIdentityKey && Array.isArray(bridgeData.tx)) {
+        // Deliver PeerPay payment token to recipient's BSV Desktop MessageBox (payment_inbox)
+        let peerPayDelivery = null;
+        if (targetIdentityKey && Array.isArray(bridgeData.tx)) {
+          btn.innerHTML = '<span>📨 Ödeme alıcının BSV Desktop kutusuna iletiliyor...</span>';
+          peerPayDelivery = await Promise.race([
             deliverPeerPayTokenToRecipient({
               recipientIdentityKey: targetIdentityKey,
               derivationPrefix: data.derivationPrefix,
               derivationSuffix: data.derivationSuffix,
               atomicBeef: bridgeData.tx,
               amountSats: data.amountSats
-            }).then((delivered) => {
-              const helperEl = document.getElementById('identity-helper-text');
-              if (helperEl && delivered) {
-                helperEl.innerHTML = `<span style="color:#10b981;">✔ <b>${data.amountSats} satoshi</b> hem blokzincire (WhatsOnChain) yazıldı hem de <code>${targetIdentityKey.slice(0, 12)}...</code> cüzdanının BSV Desktop <b>Transfer (payment_inbox)</b> kutusuna iletildi!</span>`;
-              }
-            }).catch((e) => console.warn('[PeerPay] Async delivery error:', e));
-          }
-
-          // Send TXID + AtomicBEEF (bridgeData.tx) to Gateway for instant 0ms verification & Gemini execution!
-          await executeVerification({
-            invoiceId: data.invoiceId,
-            txid,
-            atomicBeef: Array.isArray(bridgeData.tx) ? bridgeData.tx : null,
-            senderIdentityKey
-          });
-          return;
+            }).catch((e) => ({ delivered: false, errors: [e.message] })),
+            new Promise((resolve) => setTimeout(() => resolve({ delivered: false, errors: ['browser timeout (20s)'] }), 20000))
+          ]);
+          console.log('[PeerPay] Browser delivery result:', peerPayDelivery);
         }
-      } else {
-        console.warn('[BSV Desktop Bridge] Bridge returned status', bridgeRes.status, bridgeData);
+
+        // Send TXID + AtomicBEEF (bridgeData.tx) to Gateway for verification & Gemini execution.
+        // If browser delivery failed, the Gateway retries delivery from Node.
+        btn.innerHTML = '<span>🤖 Gemini yanıtı alınıyor...</span>';
+        await executeVerification({
+          invoiceId: data.invoiceId,
+          txid,
+          atomicBeef: Array.isArray(bridgeData.tx) ? bridgeData.tx : null,
+          senderIdentityKey,
+          peerPayDelivery
+        });
+        return;
       }
     } catch (bridgeErr) {
       console.warn('[BSV Desktop Bridge] Direct bridge call failed or rejected:', bridgeErr.message);
+      if (bridgeErr.message.startsWith('BRC-29')) {
+        throw bridgeErr;
+      }
     }
 
     // 3. Fallback: If bridge had error or was cancelled, show invoice and start mempool auto-detect
@@ -464,17 +466,15 @@ function startAutoDetect(invoiceId) {
     attempts++;
 
     try {
-      const res = await fetch('/api/verify', {
+      const data = await safeFetchJson('/api/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           invoiceId,
           autoDetect: true
         })
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
+      if (data && data.success) {
         clearInterval(autoDetectTimer);
         autoDetectTimer = null;
         statusEl.textContent = '✔ Ödeme algılandı! Gemini yanıtı alınıyor...';
@@ -485,7 +485,11 @@ function startAutoDetect(invoiceId) {
         statusEl.textContent = 'Mempool taraması zaman aşımına uğradı. Butona tekrar basabilirsiniz.';
       }
     } catch (err) {
-      console.warn('Auto-detect poll error:', err);
+      if (attempts >= 60) {
+        clearInterval(autoDetectTimer);
+        autoDetectTimer = null;
+        statusEl.textContent = 'Mempool taraması zaman aşımına uğradı. Butona tekrar basabilirsiniz.';
+      }
     }
   }, 1500);
 }
@@ -505,19 +509,13 @@ document.getElementById('btn-verify-txid').addEventListener('click', async () =>
   btn.textContent = 'Doğrulanıyor...';
 
   try {
-    const res = await fetch('/api/verify', {
+    const data = await safeFetchJson('/api/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         invoiceId: currentInvoice.invoiceId,
         txid
       })
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Doğrulama başarısız.');
-    }
 
     handleCompletion(data);
   } catch (err) {
@@ -531,16 +529,10 @@ document.getElementById('btn-verify-txid').addEventListener('click', async () =>
 // Common verification handler
 async function executeVerification(payload) {
   try {
-    const res = await fetch('/api/verify', {
+    const data = await safeFetchJson('/api/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Doğrulama başarısız');
-    }
 
     handleCompletion(data);
   } catch (err) {
@@ -566,6 +558,19 @@ function handleCompletion(data) {
   const link = document.getElementById('tx-explorer-link');
   link.href = data.explorerUrl;
   link.textContent = `TX: ${data.txid.slice(0, 10)}...${data.txid.slice(-8)} (WhatsOnChain ↗)`;
+
+  // Show whether the payment token reached the recipient's BSV Desktop payment_inbox
+  const helperEl = document.getElementById('identity-helper-text');
+  const d = data.peerPayDelivery;
+  if (helperEl && data.recipientIdentityKey) {
+    const shortKey = `${data.recipientIdentityKey.slice(0, 12)}...`;
+    if (d && d.delivered) {
+      helperEl.innerHTML = `<span style="color:#10b981;">✔ Ödeme <code>${shortKey}</code> alıcısının MessageBox <b>payment_inbox</b> kutusuna iletildi (${d.via || ''} → <code>${d.host}</code>, id: <code>${(d.messageId || '').slice(0, 12)}…</code>). Alıcı BSV Desktop açıkken ödemeyi otomatik / “Check incoming payments” ile alır.</span>`;
+    } else {
+      const why = d && d.errors ? d.errors.join(' | ') : 'bilinmiyor';
+      helperEl.innerHTML = `<span style="color:#f59e0b;">⚠ TX blokzincirde, ancak ödeme bildirimi alıcıya iletilemedi: ${why}</span>`;
+    }
+  }
 
   resultCard.scrollIntoView({ behavior: 'smooth' });
   refreshState();

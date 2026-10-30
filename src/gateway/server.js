@@ -35,43 +35,62 @@ function createNodeBridgeWalletClient() {
   });
 }
 
+const IDENTITY_KEY_RE = /^(02|03)[0-9a-fA-F]{64}$/;
+const MESSAGEBOX_HOSTS = [
+  'https://messagebox.bsvblockchain.tech',
+  'https://message-box-us-1.bsvb.tech',
+  'https://messagebox.babbage.systems'
+];
+
+/**
+ * Deliver a BRC-29 PeerPay payment token into the recipient's MessageBox `payment_inbox`.
+ * 1) First send WITHOUT a host override, so the client resolves the recipient's advertised
+ *    MessageBox host via the overlay (that is where their BSV Desktop actually listens);
+ *    if they have no advertisement it uses the primary host.
+ * 2) If that fails, fall back through the other known hosts.
+ * Returns { delivered, host, messageId, errors }.
+ */
 async function deliverPeerPayFromNode({ recipientIdentityKey, derivationPrefix, derivationSuffix, atomicBeef, amountSats }) {
-  if (!recipientIdentityKey || !/^(02|03)[0-9a-fA-F]{64}$/.test(recipientIdentityKey)) return false;
+  const result = { delivered: false, host: null, messageId: null, errors: [] };
+  if (!recipientIdentityKey || !IDENTITY_KEY_RE.test(recipientIdentityKey)) {
+    result.errors.push('invalid recipient identity key');
+    return result;
+  }
   const paymentToken = {
-    customInstructions: {
-      derivationPrefix,
-      derivationSuffix
-    },
+    customInstructions: { derivationPrefix, derivationSuffix },
     transaction: atomicBeef,
     amount: amountSats,
     outputIndex: 0
   };
   const walletClient = createNodeBridgeWalletClient();
-  const hosts = [
-    'https://messagebox.bsvblockchain.tech',
-    'https://message-box-us-1.bsvb.tech',
-    'https://messagebox.babbage.systems'
-  ];
-  let delivered = false;
-  for (const host of hosts) {
+  const message = {
+    recipient: recipientIdentityKey.toLowerCase(),
+    messageBox: 'payment_inbox',
+    body: JSON.stringify(paymentToken)
+  };
+
+  const attempts = [{ label: 'advertised', override: undefined }, ...MESSAGEBOX_HOSTS.slice(1).map(h => ({ label: h, override: h }))];
+  for (const attempt of attempts) {
     try {
       const mbClient = new MessageBoxClient({
-        host,
+        host: MESSAGEBOX_HOSTS[0],
         walletClient,
-        enableLogging: true
+        originator: 'localhost:3300',
+        enableLogging: false
       });
-      await mbClient.sendLiveMessage({
-        recipient: recipientIdentityKey.toLowerCase(),
-        messageBox: 'payment_inbox',
-        body: JSON.stringify(paymentToken)
-      }, host);
-      console.log(`[Gateway PeerPay] Delivered payment token to ${recipientIdentityKey} on ${host}`);
-      delivered = true;
+      const usedHost = attempt.override || await mbClient.resolveHostForRecipient(message.recipient).catch(() => MESSAGEBOX_HOSTS[0]);
+      const sent = await mbClient.sendMessage(message, usedHost);
+      result.delivered = true;
+      result.host = usedHost;
+      result.messageId = sent?.messageId || null;
+      console.log(`[Gateway PeerPay] ✔ Delivered payment token to ${recipientIdentityKey.slice(0, 14)}... on ${usedHost} (messageId: ${result.messageId})`);
+      return result;
     } catch (err) {
-      console.warn(`[Gateway PeerPay] Host ${host} warning:`, err.message);
+      console.warn(`[Gateway PeerPay] ${attempt.label} delivery failed:`, err.message);
+      result.errors.push(`${attempt.label}: ${err.message}`);
     }
   }
-  return delivered;
+  return result;
 }
 
 const app = express();
@@ -119,13 +138,23 @@ app.post('/api/providers/register', (req, res) => {
   if (!id || !bsvAddress || !endpoint) {
     return res.status(400).json({ error: 'Missing required provider fields (id, bsvAddress, endpoint)' });
   }
+  if (!wallet.isValidAddress(bsvAddress)) {
+    return res.status(400).json({ error: `Invalid provider bsvAddress "${String(bsvAddress).slice(0, 14)}..." (must be a base58 BSV address)` });
+  }
+  const cleanIdentityKey = (typeof identityKey === 'string' && IDENTITY_KEY_RE.test(identityKey.trim()))
+    ? identityKey.trim().toLowerCase()
+    : null;
+  if (identityKey && !cleanIdentityKey) {
+    console.warn(`[Gateway] Provider ${id} sent invalid identityKey (${String(identityKey).length} chars). Ignoring it.`);
+  }
 
   const updated = providerRegistry.register({
     id,
     name: name || 'Anonymous Node',
     model: model || 'gemini-1.5-pro',
     bsvAddress,
-    identityKey: identityKey || null,
+    identityKey: cleanIdentityKey,
+    payoutIsDemo: !!req.body.payoutIsDemo,
     priceSats: parseInt(priceSats || config.DEFAULT_PRICE_SATS, 10),
     endpoint
   });
@@ -154,22 +183,42 @@ app.post('/api/invoice', (req, res) => {
     provider
   });
 
-  if (recipientIdentityKey && typeof recipientIdentityKey === 'string') {
+  if (recipientIdentityKey && typeof recipientIdentityKey === 'string' && recipientIdentityKey.trim()) {
     const cleaned = recipientIdentityKey.trim();
-    if (/^(02|03)[0-9a-fA-F]{64}$/.test(cleaned)) {
+    if (IDENTITY_KEY_RE.test(cleaned)) {
       invoice.providerIdentityKey = cleaned.toLowerCase();
       try {
         invoice.providerAddress = wallet.PublicKey.fromString(invoice.providerIdentityKey).toAddress();
       } catch (_) {}
-    } else if (/^[13mn][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(cleaned)) {
+    } else if (wallet.isValidAddress(cleaned)) {
       invoice.providerAddress = cleaned;
       invoice.providerIdentityKey = null;
+    } else {
+      return res.status(400).json({
+        error: `Alıcı Identity Key geçersiz: ${cleaned.length} karakter girildi, 66 karakter olmalı (02/03 ile başlayan hex). Karşı bilgisayardaki BSV Desktop'tan Identity Key'i tekrar kopyalayın.`
+      });
     }
+  }
+
+  if (!wallet.isValidAddress(invoice.providerAddress)) {
+    return res.status(500).json({
+      error: `Provider payout address is invalid ("${String(invoice.providerAddress).slice(0, 14)}..."). Check PROVIDER_BSV_ADDRESS / PROVIDER_IDENTITY_KEY in .env.`
+    });
+  }
+  if (provider.payoutIsDemo && !invoice.providerIdentityKey && invoice.providerAddress === provider.bsvAddress) {
+    return res.status(400).json({
+      error: 'Alıcı cüzdan ayarlı değil (provider geçici demo adresi kullanıyor, bu adrese giden satoshiler kaybolur). Lütfen "Alıcı BSV Desktop Identity Key" alanına karşı bilgisayarın 66 karakterlik Identity Key\'ini girin.'
+    });
   }
 
   const bsvAmount = (invoice.amountSats / 1e8).toFixed(8);
   const bip21Uri = `bitcoin:${invoice.providerAddress}?amount=${bsvAmount}&message=AI_Swap_${invoice.id}`;
-  const lockingScriptHex = wallet.p2pkh.lock(invoice.providerAddress).toHex();
+  let lockingScriptHex;
+  try {
+    lockingScriptHex = wallet.p2pkh.lock(invoice.providerAddress).toHex();
+  } catch (err) {
+    return res.status(500).json({ error: `Could not build locking script: ${err.message}` });
+  }
 
   res.json({
     success: true,
@@ -233,7 +282,7 @@ app.get('/api/invoice/:id', (req, res) => {
 
 // API: Verify Payment & Dispatch Inference
 app.post('/api/verify', async (req, res) => {
-  const { invoiceId, txid, atomicBeef, senderIdentityKey, autoDetect } = req.body;
+  const { invoiceId, txid, atomicBeef, senderIdentityKey, autoDetect, peerPayDelivery: clientPeerPayDelivery } = req.body;
 
   const invoice = invoiceManager.getInvoice(invoiceId);
   if (!invoice) {
@@ -290,14 +339,28 @@ app.post('/api/verify', async (req, res) => {
         }
       : null;
 
-    if (brc29Remittance && invoice.providerIdentityKey) {
-      deliverPeerPayFromNode({
-        recipientIdentityKey: invoice.providerIdentityKey,
-        derivationPrefix: invoice.derivationPrefix,
-        derivationSuffix: invoice.derivationSuffix,
-        atomicBeef,
-        amountSats: verificationResult.paidSats || invoice.amountSats
-      }).catch((e) => console.warn('[Gateway PeerPay] Async node delivery warning:', e.message));
+    // Make sure the payment token reaches the recipient's BSV Desktop payment_inbox.
+    // If the browser already delivered it, don't send a duplicate; otherwise deliver from Node.
+    let peerPayDelivery = (clientPeerPayDelivery && clientPeerPayDelivery.delivered)
+      ? { ...clientPeerPayDelivery, via: 'browser' }
+      : null;
+    if (!peerPayDelivery && brc29Remittance && invoice.providerIdentityKey) {
+      const timeout = new Promise((resolve) => setTimeout(() => resolve({ delivered: false, errors: ['timeout (25s)'] }), 25000));
+      peerPayDelivery = await Promise.race([
+        deliverPeerPayFromNode({
+          recipientIdentityKey: invoice.providerIdentityKey,
+          derivationPrefix: invoice.derivationPrefix,
+          derivationSuffix: invoice.derivationSuffix,
+          atomicBeef,
+          amountSats: invoice.amountSats
+        }).catch((e) => ({ delivered: false, errors: [e.message] })),
+        timeout
+      ]);
+      peerPayDelivery.via = 'gateway';
+    }
+    if (peerPayDelivery) {
+      invoice.peerPayDelivery = peerPayDelivery;
+      console.log(`[Gateway PeerPay] Invoice ${invoice.id} delivery status:`, JSON.stringify(peerPayDelivery));
     }
 
     const execRes = await fetch(provider.endpoint, {
@@ -329,7 +392,9 @@ app.post('/api/verify', async (req, res) => {
       paidSats: verificationResult.paidSats,
       model: execData.model,
       answer: execData.answer,
-      explorerUrl
+      explorerUrl,
+      recipientIdentityKey: invoice.providerIdentityKey || null,
+      peerPayDelivery: peerPayDelivery || null
     });
   } catch (err) {
     console.error(`[Gateway] Error dispatching to provider:`, err.message);
