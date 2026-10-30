@@ -11,7 +11,7 @@ class InvoiceManager {
   /**
    * @param {Object} quote - output of pricing.quote() plus tokenCountSource
    */
-  createInvoice({ prompt, provider, quote }) {
+  createInvoice({ prompt, provider, quote, requestedModel }) {
     const id = `inv_${crypto.randomBytes(8).toString('hex')}`;
     const amountSats = quote.totalSats;
 
@@ -22,7 +22,7 @@ class InvoiceManager {
       id,
       prompt,
       promptHash: crypto.createHash('sha256').update(prompt).digest('hex'),
-      model: provider.model,
+      model: requestedModel || provider.model,
       providerId: provider.id,
       providerName: provider.name,
       providerAddress: provider.bsvAddress,

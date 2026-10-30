@@ -8,7 +8,6 @@ const config = require('../config');
 const providerRegistry = require('./providerRegistry');
 const invoiceManager = require('./invoiceManager');
 const ChannelRegistry = require('./channelRegistry');
-const UsageStats = require('./usageStats');
 const PaymentVerifier = require('../bsv/verifier');
 const WhatsOnChainClient = require('../bsv/explorer');
 const wallet = require('../bsv/wallet');
@@ -106,9 +105,6 @@ app.get('/vendor/bsv-sdk.js', (req, res) => {
   res.sendFile(path.join(__dirname, '../../node_modules/@bsv/sdk/dist/umd/bundle.js'));
 });
 
-const usageStats = new UsageStats(
-  process.env.USAGE_STATS_PATH || path.join(__dirname, '../../data/usage-stats.json')
-);
 const verifier = new PaymentVerifier(config.BSV_NETWORK);
 const explorer = new WhatsOnChainClient(config.BSV_NETWORK);
 
@@ -116,14 +112,14 @@ const explorer = new WhatsOnChainClient(config.BSV_NETWORK);
  * Ask the provider for an exact token-based quote (it owns the model's tokenizer).
  * Falls back to a local estimate if the provider has no /quote route or doesn't answer.
  */
-async function getProviderQuote(provider, prompt, maxOutputTokens) {
+async function getProviderQuote(provider, prompt, maxOutputTokens, model = null) {
   const cap = pricing.clampMaxOutputTokens(maxOutputTokens, provider.pricing);
   if (provider.quoteEndpoint) {
     try {
       const qRes = await fetch(provider.quoteEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, maxOutputTokens: cap }),
+        body: JSON.stringify({ prompt, maxOutputTokens: cap, model }),
         signal: AbortSignal.timeout(8000)
       });
       if (qRes.ok) {
@@ -133,6 +129,10 @@ async function getProviderQuote(provider, prompt, maxOutputTokens) {
           ...pricing.quote({ inputTokens: q.inputTokens, maxOutputTokens: cap, pricing: provider.pricing }),
           tokenCountSource: q.tokenCountSource || 'provider'
         };
+      }
+      if (qRes.status === 400 || qRes.status === 503) {
+        const data = await qRes.json();
+        return { error: data.error || 'Selected AI model is unavailable.', status: qRes.status };
       }
       console.warn(`[Gateway] Provider ${provider.name} quote failed (${qRes.status}), using local estimate.`);
     } catch (err) {
@@ -161,7 +161,8 @@ async function quoteRequest({ prompt, model, maxOutputTokens }) {
       error: 'No active AI providers available in the pool right now. Start a provider node or try again shortly.'
     };
   }
-  const quote = await getProviderQuote(provider, cleanPrompt, maxOutputTokens);
+  const quote = await getProviderQuote(provider, cleanPrompt, maxOutputTokens, model);
+  if (quote.error) return quote;
   return { provider, prompt: cleanPrompt, quote };
 }
 
@@ -227,6 +228,7 @@ app.post('/api/providers/register', (req, res) => {
     id,
     name: name || 'Anonymous Node',
     model: model || 'gemini-1.5-pro',
+    supportedModels: req.body.supportedModels || [model || 'gemini-1.5-pro'],
     bsvAddress,
     identityKey: cleanIdentityKey,
     payoutIsDemo: !!req.body.payoutIsDemo,
@@ -248,22 +250,12 @@ app.post('/api/quote', async (req, res) => {
     return res.status(result.status).json({ error: result.error });
   }
   const { provider, quote } = result;
-
-  // Typical cost: same input, but the average real answer length instead of the full cap
-  const expected = usageStats.expectedOutputTokens(quote.maxOutputTokens);
-  const expectedQuote = pricing.quote({ inputTokens: quote.inputTokens, maxOutputTokens: expected.tokens, pricing: provider.pricing });
-
   res.json({
     success: true,
     providerName: provider.name,
-    model: provider.model,
+    model: model || provider.model,
     amountSats: quote.totalSats,
     estimatedUsd: ((quote.totalSats * 50) / 1e8).toFixed(4),
-    expectedSats: expectedQuote.totalSats,
-    expectedUsd: ((expectedQuote.totalSats * 50) / 1e8).toFixed(4),
-    expectedOutputTokens: expected.tokens,
-    expectedSource: expected.source,
-    expectedSampleCount: expected.sampleCount,
     ...quoteResponseFields(quote, provider.pricing)
   });
 });
@@ -277,7 +269,7 @@ app.post('/api/invoice', async (req, res) => {
   }
   const { provider, prompt, quote } = result;
 
-  const invoice = invoiceManager.createInvoice({ prompt, provider, quote });
+  const invoice = invoiceManager.createInvoice({ prompt, provider, quote, requestedModel: model });
 
   if (recipientIdentityKey && typeof recipientIdentityKey === 'string' && recipientIdentityKey.trim()) {
     const cleaned = recipientIdentityKey.trim();
@@ -468,7 +460,8 @@ app.post('/api/verify', async (req, res) => {
         prompt: invoice.prompt,
         txid: verificationResult.txid,
         maxOutputTokens: invoice.maxOutputTokens,
-        brc29Remittance
+        brc29Remittance,
+        model: invoice.model
       })
     });
 
@@ -478,6 +471,9 @@ app.post('/api/verify', async (req, res) => {
     }
 
     const execData = await execRes.json();
+    if (!execRes.ok || execData.success === false || execData.error) {
+      throw new Error(execData.error || 'Provider execution failed.');
+    }
     invoiceManager.markCompleted(invoice.id, execData);
 
     const explorerUrl = `${config.BSV_NETWORK === 'testnet' ? 'https://testnet.whatsonchain.com' : 'https://whatsonchain.com'}/tx/${verificationResult.txid}`;
@@ -525,7 +521,7 @@ app.post('/api/execute-autopay', async (req, res) => {
   }
   const { provider, quote } = quoted;
 
-  const invoice = invoiceManager.createInvoice({ prompt: quoted.prompt, provider, quote });
+  const invoice = invoiceManager.createInvoice({ prompt: quoted.prompt, provider, quote, requestedModel: model });
 
   try {
     // 1. Fetch UTXOs for buyer
@@ -575,11 +571,15 @@ app.post('/api/execute-autopay', async (req, res) => {
         invoiceId: invoice.id,
         prompt: invoice.prompt,
         txid,
-        maxOutputTokens: invoice.maxOutputTokens
+        maxOutputTokens: invoice.maxOutputTokens,
+        model: invoice.model
       })
     });
 
     const execData = await execRes.json();
+    if (!execRes.ok || execData.success === false || execData.error) {
+      throw new Error(execData.error || 'Provider execution failed.');
+    }
     invoiceManager.markCompleted(invoice.id, execData);
 
     const explorerUrl = `${config.BSV_NETWORK === 'testnet' ? 'https://testnet.whatsonchain.com' : 'https://whatsonchain.com'}/tx/${txid}`;
@@ -642,8 +642,6 @@ function recordChannelAction(channelId, action, body, status, data) {
       utxo: { txid: String(body.txid).toLowerCase(), vout: parseInt(body.vout, 10), satoshis: parseInt(body.satoshis, 10) },
       status: ok ? 'OPEN' : 'OPEN_FAILED'
     });
-  } else if (action === 'query' && ok) {
-    usageStats.record(data.outputTokens);
   } else if (action === 'chunk' && ok) {
     channelRegistry.upsert(channelId, { paidSats: data.paidSats });
   } else if (action === 'close' && ok) {
@@ -657,10 +655,9 @@ app.post('/api/channel/prepare', async (req, res) => {
   if (!buyerAddress || !wallet.isValidAddress(buyerAddress)) {
     return res.status(400).json({ error: 'A valid buyerAddress (refund address) is required' });
   }
-  const candidates = Array.from(providerRegistry.providers.values()).filter(p => p.channelEndpoint);
-  const provider = candidates.find(p => !model || (p.model || '').includes(model) || model.includes(p.model || '')) || candidates[0];
+  const provider = providerRegistry.getBestProvider(model || 'gemini-1.5-pro', { requireChannels: true });
   if (!provider) {
-    return res.status(503).json({ error: 'No provider with payment channel support is online.' });
+    return res.status(503).json({ error: 'No provider with payment channel support for the selected model is online.' });
   }
 
   try {
@@ -674,8 +671,8 @@ app.post('/api/channel/prepare', async (req, res) => {
     if (data.params.providerAddress !== provider.bsvAddress || data.params.providerPubKey !== provider.channelPubKey) {
       return res.status(502).json({ error: 'Provider returned channel keys/addresses that differ from its registration' });
     }
-    channelRegistry.upsert(data.channelId, { providerName: provider.name, params: data.params });
-    res.json({ ...data, providerName: provider.name, model: provider.model, pricing: provider.pricing, network: config.BSV_NETWORK });
+    channelRegistry.upsert(data.channelId, { providerName: provider.name, model: model || provider.model, params: data.params });
+    res.json({ ...data, providerName: provider.name, model: model || provider.model, pricing: provider.pricing, network: config.BSV_NETWORK });
   } catch (err) {
     res.status(502).json({ error: `Provider unreachable: ${err.message}` });
   }
@@ -692,7 +689,10 @@ for (const action of ['open', 'query', 'chunk', 'close']) {
       return res.status(404).json({ error: 'Unknown channel or provider offline' });
     }
     try {
-      const { status, data } = await relayToProvider(provider, `/${req.params.id}/${action}`, req.body);
+      const body = action === 'query'
+        ? { ...req.body, model: req.body.model || channelRegistry.get(req.params.id)?.model || provider.model }
+        : req.body;
+      const { status, data } = await relayToProvider(provider, `/${req.params.id}/${action}`, body);
       recordChannelAction(req.params.id, action, req.body, status, data);
       res.status(status).json(data);
     } catch (err) {
@@ -758,7 +758,7 @@ app.get('/api/channel/:id', async (req, res) => {
 
 // Start Gateway
 const PORT = config.PORT;
-app.listen(PORT, () => {
+if (require.main === module) app.listen(PORT, () => {
   console.log(`\n======================================================`);
   console.log(`  BSV AI Gateway is RUNNING`);
   console.log(`  - Network: BSV ${config.BSV_NETWORK.toUpperCase()}`);

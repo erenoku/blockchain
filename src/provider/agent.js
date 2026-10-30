@@ -1,11 +1,13 @@
-require('dotenv').config();
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const express = require('express');
 const GeminiService = require('./gemini');
+const OpenAIService = require('./openai');
 const wallet = require('../bsv/wallet');
 const pricing = require('../pricing');
 const ChannelBook = require('./channelBook');
 const WhatsOnChainClient = require('../bsv/explorer');
+const { supportsModel, isOpenAIModel } = require('../modelRouting');
 
 class ProviderAgent {
   constructor(options = {}) {
@@ -18,7 +20,17 @@ class ProviderAgent {
       maxOutputTokens: options.maxOutputTokens || process.env.MAX_OUTPUT_TOKENS_LIMIT
     });
     this.model = options.model || process.env.GEMINI_MODEL || 'gemini-1.5-pro';
-    this.geminiApiKey = options.apiKey || process.env.GEMINI_API_KEY || '';
+    this.geminiApiKey = options.apiKey ?? process.env.GEMINI_API_KEY ?? '';
+    this.openaiApiKey = options.openaiApiKey ?? process.env.OPENAI_API_KEY ?? '';
+    this.openaiModel = options.openaiModel || process.env.OPENAI_MODEL || 'gpt-4o';
+    this.supportedModels = options.supportedModels || [
+      'gemini-3.5-flash',
+      'gemini-3.7-flash',
+      'gemini-3.8-flash',
+      'gemini-1.5-pro',
+      'gpt-4o',
+      'gpt-4o-mini'
+    ];
     this.gatewayUrl = options.gatewayUrl || process.env.GATEWAY_URL || 'http://localhost:3000';
     this.port = parseInt(options.port || process.env.PROVIDER_PORT || '4001', 10);
 
@@ -62,6 +74,7 @@ class ProviderAgent {
     }
 
     this.gemini = new GeminiService(this.geminiApiKey, this.model);
+    this.openai = new OpenAIService(this.openaiApiKey, this.openaiModel);
     this.explorer = new WhatsOnChainClient();
     this.channels = this.createChannelBook(options);
     this.app = express();
@@ -106,6 +119,16 @@ class ProviderAgent {
     return out.scriptPubKey.hex === lockingScriptHex && Math.round(out.value * 1e8) === utxo.satoshis;
   }
 
+  selectEngine(requestedModel) {
+    const model = (requestedModel || this.model).trim().toLowerCase();
+    if (!supportsModel(this, model)) throw new Error(`Unsupported AI model: ${model}`);
+    const engine = isOpenAIModel(model) ? this.openai : this.gemini;
+    if (engine === this.openai && !engine.apiKey) {
+      throw new Error('OPENAI_API_KEY is not configured for ChatGPT.');
+    }
+    return { model, engine };
+  }
+
   async settleChannel(channelId, opts) {
     const rawTx = this.channels.settle(channelId, opts);
     if (!rawTx) {
@@ -138,16 +161,18 @@ class ProviderAgent {
     this.app.get('/channel/:id', channelRoute((req) => this.channels.summary(this.channels.get(req.params.id))));
 
     this.app.post('/channel/:id/query', channelRoute(async (req) => {
-      const { prompt, maxOutputTokens } = req.body;
+      const { prompt, maxOutputTokens, model: reqModel } = req.body;
       if (!prompt || typeof prompt !== 'string') throw new Error('Prompt is required');
 
-      const { inputTokens } = await this.gemini.countTokens(prompt);
+      const { model, engine } = this.selectEngine(reqModel);
+
+      const { inputTokens } = await engine.countTokens(prompt);
       const cap = pricing.clampMaxOutputTokens(maxOutputTokens, this.pricing);
       const worstCase = pricing.quote({ inputTokens, maxOutputTokens: cap, pricing: this.pricing });
       this.channels.assertCanQuery(req.params.id, worstCase.totalSats);
 
-      const result = await this.gemini.generateAnswer(prompt, { maxOutputTokens: cap });
-      console.log(`[Provider] Channel ${req.params.id}: generated answer, releasing in paid chunks.`);
+      const result = await engine.generateAnswer(prompt, { maxOutputTokens: cap, model });
+      console.log(`[Provider] Channel ${req.params.id}: generated answer via ${model}, releasing in paid chunks.`);
       return { model: result.model, maxOutputTokens: cap, ...this.channels.addQuery(req.params.id, result) };
     }));
 
@@ -184,6 +209,7 @@ class ProviderAgent {
         id: this.id,
         name: this.name,
         model: this.model,
+        supportedModels: this.supportedModels,
         bsvAddress: this.bsvAddress,
         identityKey: this.identityKey,
         payoutIsDemo: !!this.payoutIsDemo,
@@ -193,15 +219,23 @@ class ProviderAgent {
 
     // Quote route: count input tokens with the model's tokenizer and price the request
     this.app.post('/quote', async (req, res) => {
-      const { prompt, maxOutputTokens } = req.body;
+      const { prompt, maxOutputTokens, model: reqModel } = req.body;
       if (!prompt || typeof prompt !== 'string') {
         return res.status(400).json({ error: 'Prompt is required' });
       }
 
-      const { inputTokens, source } = await this.gemini.countTokens(prompt);
+      let selected;
+      try {
+        selected = this.selectEngine(reqModel);
+      } catch (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      const countProvider = selected.engine;
+      const { inputTokens, source } = await countProvider.countTokens(prompt);
       const cap = pricing.clampMaxOutputTokens(maxOutputTokens, this.pricing);
       res.json({
         success: true,
+        model: selected.model,
         tokenCountSource: source,
         pricing: this.pricing,
         ...pricing.quote({ inputTokens, maxOutputTokens: cap, pricing: this.pricing })
@@ -210,15 +244,24 @@ class ProviderAgent {
 
     // Execute route triggered by Gateway after payment verification
     this.app.post('/execute', async (req, res) => {
-      const { invoiceId, prompt, txid, brc29Remittance, maxOutputTokens } = req.body;
+      const { invoiceId, prompt, txid, brc29Remittance, maxOutputTokens, model: reqModel } = req.body;
 
       if (!prompt) {
         return res.status(400).json({ error: 'Prompt is required' });
       }
 
+      let selected;
+      try {
+        selected = this.selectEngine(reqModel);
+      } catch (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      const isChatGpt = isOpenAIModel(selected.model);
+
       console.log(`[Provider] Received paid execution request:`);
       console.log(`  - Invoice ID: ${invoiceId}`);
       console.log(`  - TXID: ${txid}`);
+      console.log(`  - AI Engine: ${isChatGpt ? 'OpenAI ChatGPT' : 'Google Gemini'} (${reqModel || this.model})`);
       console.log(`  - Prompt: "${prompt.slice(0, 60)}..."`);
       const outputCap = pricing.clampMaxOutputTokens(maxOutputTokens, this.pricing);
       console.log(`  - Max Output Tokens: ${outputCap}`);
@@ -283,9 +326,9 @@ class ProviderAgent {
       }
 
       try {
-        const result = await this.gemini.generateAnswer(prompt, { maxOutputTokens: outputCap });
+        const result = await selected.engine.generateAnswer(prompt, { maxOutputTokens: outputCap, model: selected.model });
         const cost = pricing.actualCost({ usage: result.usage, pricing: this.pricing });
-        console.log(`[Provider] Successfully generated Gemini answer for invoice ${invoiceId} (${cost.inputTokens} in / ${cost.outputTokens} out tokens = ${cost.totalSats} sats)`);
+        console.log(`[Provider] Successfully generated answer for invoice ${invoiceId} (${cost.inputTokens} in / ${cost.outputTokens} out tokens = ${cost.totalSats} sats)`);
         res.json({
           success: true,
           providerId: this.id,
@@ -309,6 +352,7 @@ class ProviderAgent {
         id: this.id,
         name: this.name,
         model: this.model,
+        supportedModels: this.supportedModels,
         bsvAddress: this.bsvAddress,
         identityKey: this.identityKey,
         payoutIsDemo: !!this.payoutIsDemo,
@@ -343,7 +387,7 @@ class ProviderAgent {
         console.log(`\n======================================================`);
         console.log(`  BSV AI Provider Node is RUNNING`);
         console.log(`  - Name: ${this.name}`);
-        console.log(`  - Model: Google Gemini Pro (${this.model})`);
+        console.log(`  - Models: ${this.supportedModels.join(', ')}`);
         console.log(`  - Payout BSV Address: ${this.bsvAddress}`);
         console.log(`  - Pricing: ${this.pricing.inputPer1k} sats/1K input, ${this.pricing.outputPer1k} sats/1K output (min ${this.pricing.minSats} sats, max ${this.pricing.maxOutputTokens} output tokens)`);
         console.log(`  - Listening on: http://localhost:${this.port}`);
