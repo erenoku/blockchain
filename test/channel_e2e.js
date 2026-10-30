@@ -72,7 +72,7 @@ async function run() {
   let funded = true;
 
   const gateway = spawn(process.execPath, [path.join(__dirname, '../src/gateway/server.js')], {
-    env: { ...process.env, PORT: String(GATEWAY_PORT), GEMINI_API_KEY: '', CHANNEL_REGISTRY_PATH: path.join(tmpDir, 'gateway.json') },
+    env: { ...process.env, PORT: String(GATEWAY_PORT), GEMINI_API_KEY: '', CHANNEL_REGISTRY_PATH: path.join(tmpDir, 'gateway.json'), USAGE_STATS_PATH: path.join(tmpDir, 'usage.json') },
     stdio: 'ignore'
   });
 
@@ -139,7 +139,18 @@ async function run() {
 
     // 3. Ask, paying chunk by chunk with browser signatures; stop after 2 chunks
     const prompt = 'Explain BSV payment channels in detail. '.repeat(3);
+    const before = await post(`${GATEWAY}/api/quote`, { prompt, maxOutputTokens: 512 });
+    assert.strictEqual(before.expectedSource, 'default');
+    assert.strictEqual(before.expectedOutputTokens, 256, 'No history: half the cap');
+    assert(before.expectedSats < before.amountSats, 'Typical price is below the cap price');
+
     const q = await post(`${GATEWAY}/api/channel/${proposal.channelId}/query`, { prompt, maxOutputTokens: 512 });
+
+    const after = await post(`${GATEWAY}/api/quote`, { prompt, maxOutputTokens: 512 });
+    assert.strictEqual(after.expectedSource, 'history');
+    assert.strictEqual(after.expectedSampleCount, 1);
+    assert.strictEqual(after.expectedOutputTokens, Math.min(q.outputTokens, 512), 'Average follows real answer length');
+    console.log(`  ✔ Estimate: ≈${before.expectedSats} sats (no history) → ≈${after.expectedSats} sats after a ${q.outputTokens}-token answer; cap ${after.amountSats} sats.`);
     const capSats = ChannelClient.maxQuerySats(proposal.pricing, q.inputTokens, q.maxOutputTokens);
     assert(q.totalQuerySats <= capSats, 'Query priced within cap');
     assert(q.totalChunks >= 3, `Demo answer should span several chunks (got ${q.totalChunks})`);
@@ -160,7 +171,11 @@ async function run() {
     console.log(`  ✔ Paid 2/${q.totalChunks} chunks (${state.lastStateSats} sats of ${q.totalQuerySats}), then stopped.`);
 
     // A tampered price must be refused by the buyer before signing
-    assert.throws(() => ChannelClient.checkChunkTerms(state, { ...terms, stateSats: capSats + 1 }), /query cap/);
+    const allowed = ChannelClient.allowedQuerySats(capSats);
+    assert.strictEqual(allowed, Math.floor(capSats * 1.1));
+    assert.doesNotThrow(() => ChannelClient.checkChunkTerms(state, { ...terms, stateSats: capSats + 4 }), 'A few sats over the cap is paid');
+    assert.doesNotThrow(() => ChannelClient.checkChunkTerms(state, { ...terms, stateSats: allowed }), 'Exactly cap + 10% is paid');
+    assert.throws(() => ChannelClient.checkChunkTerms(state, { ...terms, stateSats: allowed + 1 }), /query cap \+ 10%/);
 
     // 4. Close: provider settles, buyer's refund output is internalizable
     const closed = await post(`${GATEWAY}/api/channel/${proposal.channelId}/close`, {});

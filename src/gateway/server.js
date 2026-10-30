@@ -8,6 +8,7 @@ const config = require('../config');
 const providerRegistry = require('./providerRegistry');
 const invoiceManager = require('./invoiceManager');
 const ChannelRegistry = require('./channelRegistry');
+const UsageStats = require('./usageStats');
 const PaymentVerifier = require('../bsv/verifier');
 const WhatsOnChainClient = require('../bsv/explorer');
 const wallet = require('../bsv/wallet');
@@ -105,6 +106,9 @@ app.get('/vendor/bsv-sdk.js', (req, res) => {
   res.sendFile(path.join(__dirname, '../../node_modules/@bsv/sdk/dist/umd/bundle.js'));
 });
 
+const usageStats = new UsageStats(
+  process.env.USAGE_STATS_PATH || path.join(__dirname, '../../data/usage-stats.json')
+);
 const verifier = new PaymentVerifier(config.BSV_NETWORK);
 const explorer = new WhatsOnChainClient(config.BSV_NETWORK);
 
@@ -244,12 +248,22 @@ app.post('/api/quote', async (req, res) => {
     return res.status(result.status).json({ error: result.error });
   }
   const { provider, quote } = result;
+
+  // Typical cost: same input, but the average real answer length instead of the full cap
+  const expected = usageStats.expectedOutputTokens(quote.maxOutputTokens);
+  const expectedQuote = pricing.quote({ inputTokens: quote.inputTokens, maxOutputTokens: expected.tokens, pricing: provider.pricing });
+
   res.json({
     success: true,
     providerName: provider.name,
     model: provider.model,
     amountSats: quote.totalSats,
     estimatedUsd: ((quote.totalSats * 50) / 1e8).toFixed(4),
+    expectedSats: expectedQuote.totalSats,
+    expectedUsd: ((expectedQuote.totalSats * 50) / 1e8).toFixed(4),
+    expectedOutputTokens: expected.tokens,
+    expectedSource: expected.source,
+    expectedSampleCount: expected.sampleCount,
     ...quoteResponseFields(quote, provider.pricing)
   });
 });
@@ -628,6 +642,8 @@ function recordChannelAction(channelId, action, body, status, data) {
       utxo: { txid: String(body.txid).toLowerCase(), vout: parseInt(body.vout, 10), satoshis: parseInt(body.satoshis, 10) },
       status: ok ? 'OPEN' : 'OPEN_FAILED'
     });
+  } else if (action === 'query' && ok) {
+    usageStats.record(data.outputTokens);
   } else if (action === 'chunk' && ok) {
     channelRegistry.upsert(channelId, { paidSats: data.paidSats });
   } else if (action === 'close' && ok) {

@@ -65,7 +65,11 @@ async function runTests() {
   assert.strictEqual(pricing.quote({ inputTokens: 1, maxOutputTokens: 1, pricing: { inputPer1k: 1, outputPer1k: 1, minSats: 0 } }).totalSats, 2, 'Fractional sats round up');
   assert.strictEqual(pricing.clampMaxOutputTokens(100000, testPricing), 4096, 'Output cap clamped to provider limit');
   assert.strictEqual(pricing.clampMaxOutputTokens(0, testPricing), 1, 'Output cap at least 1');
-  assert.strictEqual(pricing.clampMaxOutputTokens('abc', testPricing), 1024, 'Invalid cap falls back to default');
+  assert.strictEqual(
+    pricing.clampMaxOutputTokens('abc', testPricing),
+    Math.min(require('../src/config').DEFAULT_MAX_OUTPUT_TOKENS, testPricing.maxOutputTokens),
+    'Invalid cap falls back to default'
+  );
   const actual = pricing.actualCost({ usage: { promptTokenCount: 1500, candidatesTokenCount: 300, thoughtsTokenCount: 200 }, pricing: testPricing });
   assert.strictEqual(actual.outputTokens, 500, 'Thinking tokens count as output');
   assert.strictEqual(actual.totalSats, 150 + 200);

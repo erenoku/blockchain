@@ -20,6 +20,9 @@
   const SEQUENCE_FINAL = 0xffffffff;
   const MAX_CLOSE_FEE = 50;
   const MAX_TTL_SEC = 3 * 24 * 60 * 60;
+  // Providers may go a little over the quoted cap (e.g. token counts that differ
+  // slightly from the quote); anything up to this share above it is still paid.
+  const OVER_CAP_TOLERANCE_PCT = 10;
 
   function generateSessionKey() {
     const key = bsv.PrivateKey.fromRandom();
@@ -87,6 +90,11 @@
     return Math.max(pricing.minSats, inputSats + outputSats);
   }
 
+  /** Most the buyer will pay for a query: the cap plus the tolerance. */
+  function allowedQuerySats(capSats) {
+    return Math.floor((capSats * (100 + OVER_CAP_TOLERANCE_PCT)) / 100);
+  }
+
   /**
    * Check the provider's terms for the next chunk before signing them.
    * @param {Object} q - { baseSats, capSats, lastStateSats }
@@ -94,8 +102,9 @@
   function checkChunkTerms(q, terms) {
     if (!Number.isInteger(terms.stateSats)) throw new Error('Invalid chunk price');
     if (terms.stateSats < q.lastStateSats) throw new Error('Chunk price went down (invalid state)');
-    if (terms.stateSats > q.baseSats + q.capSats) {
-      throw new Error(`Provider asked ${terms.stateSats - q.baseSats} sats, more than the ${q.capSats} sats query cap`);
+    const allowed = allowedQuerySats(q.capSats);
+    if (terms.stateSats > q.baseSats + allowed) {
+      throw new Error(`Provider asked ${terms.stateSats - q.baseSats} sats, more than the ${q.capSats} sats query cap + ${OVER_CAP_TOLERANCE_PCT}% (${allowed} sats)`);
     }
   }
 
@@ -130,6 +139,8 @@
     signState,
     checkProposal,
     maxQuerySats,
+    allowedQuerySats,
+    OVER_CAP_TOLERANCE_PCT,
     checkChunkTerms,
     findChannelOutput,
     closingTxBeef,

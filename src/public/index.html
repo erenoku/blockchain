@@ -102,23 +102,10 @@
           <textarea id="prompt-input" rows="4" placeholder="Ask anything... (e.g. 'Explain quantum computing in 3 bullet points' or 'Write a smart contract outline')">Explain how BSV microtransactions enable pay-per-token AI inference without subscription lock-in.</textarea>
         </div>
 
-        <!-- Token Budget (output cap paid up-front) -->
+        <!-- Price estimate (answers are capped at a fixed 4096 output tokens) -->
         <div class="input-group">
-          <label for="max-output-select">Maksimum Cevap Uzunluğu (output token)</label>
-          <select id="max-output-select" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff; font-size:0.85rem;">
-            <option value="256">256 token (kısa)</option>
-            <option value="512">512 token</option>
-            <option value="1024" selected>1024 token (varsayılan)</option>
-            <option value="2048">2048 token</option>
-            <option value="4096">4096 token (uzun)</option>
-          </select>
           <div id="quote-breakdown" style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">Fiyat hesaplanıyor...</div>
         </div>
-
-        <!-- Action Button -->
-        <button id="btn-request-invoice" class="btn btn-primary">
-          <span>⚡ Sor & BSV Desktop'ta Onayla</span>
-        </button>
 
         <!-- TokenChannel: smart contract payment channel (pay per streamed chunk) -->
         <div id="channel-panel" class="input-group" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 14px; border-radius: 12px; margin-top: 16px;">
@@ -139,65 +126,6 @@
           </div>
           <div id="channel-message" style="font-size:0.75rem; color:#9ca3af; margin-top:8px;"></div>
           <div id="channel-locked-list" style="margin-top:10px;"></div>
-        </div>
-
-        <!-- Payment Invoice Drawer / Modal (Hidden until invoice created) -->
-        <div id="invoice-modal" class="invoice-container hidden">
-          <div class="invoice-box">
-            <div class="invoice-header">
-              <h3>BSV Desktop Transferi Hazırlandı</h3>
-              <span class="status-tag auto-listening"><span class="pulse"></span> Mempool Dinleniyor...</span>
-            </div>
-
-            <div class="invoice-body">
-              <div class="qr-container">
-                <img id="invoice-qr" src="" alt="Payment QR Code">
-              </div>
-
-              <div class="invoice-details">
-                <!-- Deep-link Auto-Approve Button -->
-                <div class="app-redirect-box">
-                  <a id="btn-open-desktop-app" href="#" class="btn btn-launch">
-                    <span>🚀 BSV Desktop'ta Aç ve Sadece Onayla</span>
-                  </a>
-                  <p class="launch-hint">Yukarıdaki butona tıklayınca BSV Desktop cüzdanınız açılır, tutar (500 sat) ve adres otomatik doldurulur. Siz sadece <b>"Gönder / Onayla"</b> butonuna basarsınız.</p>
-                </div>
-
-                <div class="field-item">
-                  <span class="field-label">Provider BSV Adresi:</span>
-                  <div class="copy-field">
-                    <input type="text" id="inv-provider-address" readonly>
-                    <button class="btn-copy" onclick="copyText('inv-provider-address')">Kopyala</button>
-                  </div>
-                </div>
-
-                <div class="field-item">
-                  <span class="field-label">Gönderilecek Tutar:</span>
-                  <div class="copy-field">
-                    <input type="text" id="inv-amount-sats" readonly>
-                    <button class="btn-copy" onclick="copyText('inv-amount-sats')">Kopyala</button>
-                  </div>
-                </div>
-
-                <!-- Auto-detection notification -->
-                <div class="desktop-instructions highlight-auto">
-                  <div class="listening-bar">
-                    <div class="spinner"></div>
-                    <span id="auto-detect-status">BSV Desktop'tan Onayla'ya basmanız bekleniyor. Bastığınız an otomatik başlayacak!</span>
-                  </div>
-                </div>
-
-                <!-- Manual fallback option -->
-                <details class="manual-tx-details">
-                  <summary>Manuel TXID ile zorla çalıştır (İsteğe bağlı)</summary>
-                  <div class="manual-tx-content">
-                    <input type="text" id="input-txid" placeholder="İşlem ID'si (TXID)...">
-                    <button id="btn-verify-txid" class="btn btn-sm btn-accent">Doğrula</button>
-                  </div>
-                </details>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- Result / AI Answer Card -->
