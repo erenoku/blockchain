@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "errors": [],
+  "scryptfile": "contracts/tokenChannel.scrypt",
+  "sourceMapFile": "contracts/tokenChannel.scrypt.map",
+  "ctxMethods": [
+    "settle",
+    "refund"
+  ]
+}

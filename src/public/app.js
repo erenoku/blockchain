@@ -237,7 +237,7 @@ async function refreshState() {
         <div class="provider-card">
           <div class="name-row">
             <span>${p.name}</span>
-            <span class="pricing">${p.priceSats} sats</span>
+            <span class="pricing">${p.pricing ? `${p.pricing.inputPer1k}/${p.pricing.outputPer1k} sats per 1K` : '-'}</span>
           </div>
           <div class="addr" title="${p.identityKey || p.bsvAddress}">
             ${p.identityKey ? `ID Key: ${p.identityKey.slice(0, 12)}...${p.identityKey.slice(-8)}` : `Payout: ${p.bsvAddress}`}
@@ -248,9 +248,7 @@ async function refreshState() {
 
       const best = data.providers[0];
       if (best) {
-        document.getElementById('display-fee-sats').textContent = `${best.priceSats} Sats`;
-        const usd = ((best.priceSats * 50) / 1e8).toFixed(4);
-        document.getElementById('display-fee-usd').textContent = `~$${usd} USD`;
+        if (!lastQuote) updateQuote();
 
         // Pre-populate recipient Identity Key if empty
         if (recipientInput && !recipientInput.value.trim() && best.identityKey) {
@@ -264,6 +262,57 @@ async function refreshState() {
     // Silently ignore polling network errors when servers restart
   }
 }
+
+// Live token-based price estimate for the current prompt + output cap
+let lastQuote = null;
+let quoteTimer = null;
+
+function getMaxOutputTokens() {
+  const el = document.getElementById('max-output-select');
+  return el ? parseInt(el.value, 10) : undefined;
+}
+
+function renderQuote(q) {
+  document.getElementById('display-fee-sats').textContent = `${q.amountSats} Sats`;
+  document.getElementById('display-fee-usd').textContent = `~$${q.estimatedUsd} USD`;
+  const source = q.tokenCountSource === 'gemini' ? 'Gemini tokenizer' : 'tahmini';
+  document.getElementById('quote-breakdown').textContent =
+    `Girdi: ${q.inputTokens} token (${source}) = ${q.inputSats} sats · ` +
+    `Çıktı tavanı: ${q.maxOutputTokens} token = ${q.outputSats} sats · ` +
+    `Toplam: ${q.amountSats} sats (min ${q.pricing.minSats})`;
+}
+
+async function updateQuote() {
+  const prompt = document.getElementById('prompt-input').value.trim();
+  const breakdown = document.getElementById('quote-breakdown');
+  if (!prompt) {
+    breakdown.textContent = 'Fiyatı görmek için bir prompt yazın.';
+    return;
+  }
+  try {
+    const q = await safeFetchJson('/api/quote', {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt,
+        model: document.getElementById('model-select').value,
+        maxOutputTokens: getMaxOutputTokens()
+      })
+    });
+    lastQuote = q;
+    renderQuote(q);
+  } catch (err) {
+    breakdown.textContent = `Fiyat alınamadı: ${err.message}`;
+  }
+}
+
+function scheduleQuote() {
+  clearTimeout(quoteTimer);
+  quoteTimer = setTimeout(updateQuote, 400);
+}
+
+document.getElementById('prompt-input').addEventListener('input', scheduleQuote);
+document.getElementById('max-output-select').addEventListener('change', updateQuote);
+document.getElementById('model-select').addEventListener('change', updateQuote);
 
 // Main Action: Submit Prompt & Trigger BSV Desktop Bridge (localhost:3321)
 document.getElementById('btn-request-invoice').addEventListener('click', async () => {
@@ -294,6 +343,7 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
       body: JSON.stringify({
         prompt,
         model,
+        maxOutputTokens: getMaxOutputTokens(),
         recipientIdentityKey: customRecipientKey || undefined
       })
     });
@@ -303,6 +353,7 @@ document.getElementById('btn-request-invoice').addEventListener('click', async (
     // Populate fallback invoice fields
     document.getElementById('inv-provider-address').value = data.providerAddress;
     document.getElementById('inv-amount-sats').value = `${data.amountSats} satoshis`;
+    renderQuote(data);
 
     // 2. Direct Bridge Call to BSV Desktop on localhost:3321
     btn.innerHTML = '<span>🔐 BSV Desktop Cüzdanından Ödeniyor...</span>';
@@ -558,6 +609,14 @@ function handleCompletion(data) {
   const link = document.getElementById('tx-explorer-link');
   link.href = data.explorerUrl;
   link.textContent = `TX: ${data.txid.slice(0, 10)}...${data.txid.slice(-8)} (WhatsOnChain ↗)`;
+
+  const usageEl = document.getElementById('token-usage-summary');
+  if (usageEl) {
+    const c = data.actualCost;
+    usageEl.textContent = c
+      ? `Kullanılan: ${c.inputTokens} girdi + ${c.outputTokens} çıktı token (tavan ${data.maxOutputTokens}) · Gerçek maliyet ${c.totalSats} sats / ödenen ${data.quotedSats || data.paidSats} sats`
+      : '';
+  }
 
   // Show whether the payment token reached the recipient's BSV Desktop payment_inbox
   const helperEl = document.getElementById('identity-helper-text');

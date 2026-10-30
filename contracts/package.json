@@ -1,0 +1,22 @@
+{
+  "name": "bsv-ai-token-channel",
+  "version": "1.0.0",
+  "description": "sCrypt TokenChannel contract for pay-per-token AI inference",
+  "main": "dist/channel.js",
+  "scripts": {
+    "build": "npx scrypt-cli compile && npx tsc -p tsconfig.json",
+    "test": "node --test test/"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "scrypt-ts": "^1.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "scrypt-cli": "^0.2.3",
+    "typescript": "^5.4.5"
+  }
+}

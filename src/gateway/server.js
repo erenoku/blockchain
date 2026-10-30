@@ -7,9 +7,11 @@ const cors = require('cors');
 const config = require('../config');
 const providerRegistry = require('./providerRegistry');
 const invoiceManager = require('./invoiceManager');
+const ChannelRegistry = require('./channelRegistry');
 const PaymentVerifier = require('../bsv/verifier');
 const WhatsOnChainClient = require('../bsv/explorer');
 const wallet = require('../bsv/wallet');
+const pricing = require('../pricing');
 const { MessageBoxClient } = require('../public/messagebox-bundle');
 
 function createNodeBridgeWalletClient() {
@@ -97,9 +99,78 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
+// @bsv/sdk browser bundle, used by channelClient.js to sign channel states
+app.get('/vendor/bsv-sdk.js', (req, res) => {
+  // The package "exports" map hides dist/umd, so require.resolve can't reach it
+  res.sendFile(path.join(__dirname, '../../node_modules/@bsv/sdk/dist/umd/bundle.js'));
+});
 
 const verifier = new PaymentVerifier(config.BSV_NETWORK);
 const explorer = new WhatsOnChainClient(config.BSV_NETWORK);
+
+/**
+ * Ask the provider for an exact token-based quote (it owns the model's tokenizer).
+ * Falls back to a local estimate if the provider has no /quote route or doesn't answer.
+ */
+async function getProviderQuote(provider, prompt, maxOutputTokens) {
+  const cap = pricing.clampMaxOutputTokens(maxOutputTokens, provider.pricing);
+  if (provider.quoteEndpoint) {
+    try {
+      const qRes = await fetch(provider.quoteEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, maxOutputTokens: cap }),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (qRes.ok) {
+        const q = await qRes.json();
+        // Re-price on the gateway with the registered pricing so a provider can't inflate the invoice
+        return {
+          ...pricing.quote({ inputTokens: q.inputTokens, maxOutputTokens: cap, pricing: provider.pricing }),
+          tokenCountSource: q.tokenCountSource || 'provider'
+        };
+      }
+      console.warn(`[Gateway] Provider ${provider.name} quote failed (${qRes.status}), using local estimate.`);
+    } catch (err) {
+      console.warn(`[Gateway] Provider ${provider.name} quote error: ${err.message}, using local estimate.`);
+    }
+  }
+  return {
+    ...pricing.quote({ inputTokens: pricing.estimateTokens(prompt), maxOutputTokens: cap, pricing: provider.pricing }),
+    tokenCountSource: 'estimate'
+  };
+}
+
+/**
+ * Pick the best provider for a prompt and quote it.
+ * Returns { provider, quote } or { error, status }.
+ */
+async function quoteRequest({ prompt, model, maxOutputTokens }) {
+  if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+    return { status: 400, error: 'Prompt is required' };
+  }
+  const cleanPrompt = prompt.trim();
+  const provider = providerRegistry.getBestProvider(model || 'gemini-1.5-pro', { prompt: cleanPrompt, maxOutputTokens });
+  if (!provider) {
+    return {
+      status: 503,
+      error: 'No active AI providers available in the pool right now. Start a provider node or try again shortly.'
+    };
+  }
+  const quote = await getProviderQuote(provider, cleanPrompt, maxOutputTokens);
+  return { provider, prompt: cleanPrompt, quote };
+}
+
+function quoteResponseFields(quote, providerPricing) {
+  return {
+    inputTokens: quote.inputTokens,
+    maxOutputTokens: quote.maxOutputTokens,
+    inputSats: quote.inputSats,
+    outputSats: quote.outputSats,
+    tokenCountSource: quote.tokenCountSource,
+    pricing: providerPricing
+  };
+}
 
 // API: Bring BSV-Desktop app to foreground on macOS
 app.post('/api/focus-wallet', (req, res) => {
@@ -134,7 +205,7 @@ app.get('/api/providers', (req, res) => {
 
 // API: Register Provider Node
 app.post('/api/providers/register', (req, res) => {
-  const { id, name, model, bsvAddress, identityKey, priceSats, endpoint } = req.body;
+  const { id, name, model, bsvAddress, identityKey, endpoint, quoteEndpoint, channelPubKey, channelEndpoint } = req.body;
   if (!id || !bsvAddress || !endpoint) {
     return res.status(400).json({ error: 'Missing required provider fields (id, bsvAddress, endpoint)' });
   }
@@ -155,33 +226,44 @@ app.post('/api/providers/register', (req, res) => {
     bsvAddress,
     identityKey: cleanIdentityKey,
     payoutIsDemo: !!req.body.payoutIsDemo,
-    priceSats: parseInt(priceSats || config.DEFAULT_PRICE_SATS, 10),
-    endpoint
+    pricing: pricing.normalizePricing(req.body.pricing),
+    endpoint,
+    quoteEndpoint: quoteEndpoint || null,
+    channelPubKey: channelPubKey || null,
+    channelEndpoint: channelEndpoint || null
   });
 
   res.json({ success: true, provider: updated });
 });
 
-// API: Create Invoice for AI Query
-app.post('/api/invoice', (req, res) => {
-  const { prompt, model, recipientIdentityKey } = req.body;
-  if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
-    return res.status(400).json({ error: 'Prompt is required' });
+// API: Price a prompt without creating an invoice (live estimate in the UI)
+app.post('/api/quote', async (req, res) => {
+  const { prompt, model, maxOutputTokens } = req.body;
+  const result = await quoteRequest({ prompt, model, maxOutputTokens });
+  if (result.error) {
+    return res.status(result.status).json({ error: result.error });
   }
-
-  const targetModel = model || 'gemini-1.5-pro';
-  const provider = providerRegistry.getBestProvider(targetModel);
-
-  if (!provider) {
-    return res.status(503).json({
-      error: 'No active AI providers available in the pool right now. Start a provider node or try again shortly.'
-    });
-  }
-
-  const invoice = invoiceManager.createInvoice({
-    prompt: prompt.trim(),
-    provider
+  const { provider, quote } = result;
+  res.json({
+    success: true,
+    providerName: provider.name,
+    model: provider.model,
+    amountSats: quote.totalSats,
+    estimatedUsd: ((quote.totalSats * 50) / 1e8).toFixed(4),
+    ...quoteResponseFields(quote, provider.pricing)
   });
+});
+
+// API: Create Invoice for AI Query
+app.post('/api/invoice', async (req, res) => {
+  const { model, recipientIdentityKey, maxOutputTokens } = req.body;
+  const result = await quoteRequest({ prompt: req.body.prompt, model, maxOutputTokens });
+  if (result.error) {
+    return res.status(result.status).json({ error: result.error });
+  }
+  const { provider, prompt, quote } = result;
+
+  const invoice = invoiceManager.createInvoice({ prompt, provider, quote });
 
   if (recipientIdentityKey && typeof recipientIdentityKey === 'string' && recipientIdentityKey.trim()) {
     const cleaned = recipientIdentityKey.trim();
@@ -231,6 +313,7 @@ app.post('/api/invoice', (req, res) => {
     derivationSuffix: invoice.derivationSuffix,
     amountSats: invoice.amountSats,
     estimatedUsd: invoice.estimatedUsd,
+    ...quoteResponseFields(quote, provider.pricing),
     bip21Uri,
     lockingScriptHex,
     expiresAt: invoice.expiresAt,
@@ -370,6 +453,7 @@ app.post('/api/verify', async (req, res) => {
         invoiceId: invoice.id,
         prompt: invoice.prompt,
         txid: verificationResult.txid,
+        maxOutputTokens: invoice.maxOutputTokens,
         brc29Remittance
       })
     });
@@ -390,6 +474,10 @@ app.post('/api/verify', async (req, res) => {
       invoiceId: invoice.id,
       txid: verificationResult.txid,
       paidSats: verificationResult.paidSats,
+      quotedSats: invoice.amountSats,
+      maxOutputTokens: invoice.maxOutputTokens,
+      usage: invoice.usage,
+      actualCost: invoice.actualCost,
       model: execData.model,
       answer: execData.answer,
       explorerUrl,
@@ -404,7 +492,7 @@ app.post('/api/verify', async (req, res) => {
 
 // API: One-Click Instant Pay & Execute (Supports Burner Wallet / Direct WIF)
 app.post('/api/execute-autopay', async (req, res) => {
-  const { prompt, model, buyerWif } = req.body;
+  const { prompt, model, buyerWif, maxOutputTokens } = req.body;
 
   if (!prompt || !buyerWif) {
     return res.status(400).json({ error: 'Prompt and buyerWif are required.' });
@@ -417,16 +505,13 @@ app.post('/api/execute-autopay', async (req, res) => {
     return res.status(400).json({ error: `Invalid WIF: ${err.message}` });
   }
 
-  const targetModel = model || 'gemini-1.5-pro';
-  const provider = providerRegistry.getBestProvider(targetModel);
-  if (!provider) {
-    return res.status(503).json({ error: 'No active AI providers online.' });
+  const quoted = await quoteRequest({ prompt, model, maxOutputTokens });
+  if (quoted.error) {
+    return res.status(quoted.status).json({ error: quoted.error });
   }
+  const { provider, quote } = quoted;
 
-  const invoice = invoiceManager.createInvoice({
-    prompt: prompt.trim(),
-    provider
-  });
+  const invoice = invoiceManager.createInvoice({ prompt: quoted.prompt, provider, quote });
 
   try {
     // 1. Fetch UTXOs for buyer
@@ -475,7 +560,8 @@ app.post('/api/execute-autopay', async (req, res) => {
       body: JSON.stringify({
         invoiceId: invoice.id,
         prompt: invoice.prompt,
-        txid
+        txid,
+        maxOutputTokens: invoice.maxOutputTokens
       })
     });
 
@@ -489,6 +575,10 @@ app.post('/api/execute-autopay', async (req, res) => {
       invoiceId: invoice.id,
       txid,
       paidSats: invoice.amountSats,
+      quotedSats: invoice.amountSats,
+      maxOutputTokens: invoice.maxOutputTokens,
+      usage: invoice.usage,
+      actualCost: invoice.actualCost,
       model: execData.model,
       answer: execData.answer,
       explorerUrl
@@ -496,6 +586,157 @@ app.post('/api/execute-autopay', async (req, res) => {
   } catch (err) {
     console.error('[AutoPay] Error:', err.message);
     res.status(500).json({ error: `AutoPay failed: ${err.message}` });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// TokenChannel payment channels: the gateway matches buyer and provider, then
+// relays messages. Signatures and channel state live with the provider.
+// ---------------------------------------------------------------------------
+// Persisted so locked deposits stay visible and routable after a gateway restart
+const channelRegistry = new ChannelRegistry(
+  process.env.CHANNEL_REGISTRY_PATH || path.join(__dirname, '../../data/gateway-channels.json')
+);
+
+let channelLib = null;
+function contractLib() {
+  if (!channelLib) channelLib = require('../../contracts/dist/channel');
+  return channelLib;
+}
+
+async function relayToProvider(provider, path, body) {
+  const pRes = await fetch(`${provider.channelEndpoint}${path}`, body === undefined
+    ? {}
+    : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await pRes.json().catch(() => ({ error: `Provider returned ${pRes.status}` }));
+  return { status: pRes.status, data };
+}
+
+// Providers get a new id on every start, but their channel key is persisted, so match on that
+function channelProvider(channelId) {
+  const record = channelRegistry.get(channelId);
+  if (!record) return null;
+  return Array.from(providerRegistry.providers.values())
+    .find(p => p.channelEndpoint && p.channelPubKey === record.params.providerPubKey) || null;
+}
+
+// Record what each relayed channel action did, for the locked-funds view
+function recordChannelAction(channelId, action, body, status, data) {
+  const ok = status === 200;
+  if (action === 'open') {
+    channelRegistry.upsert(channelId, {
+      utxo: { txid: String(body.txid).toLowerCase(), vout: parseInt(body.vout, 10), satoshis: parseInt(body.satoshis, 10) },
+      status: ok ? 'OPEN' : 'OPEN_FAILED'
+    });
+  } else if (action === 'chunk' && ok) {
+    channelRegistry.upsert(channelId, { paidSats: data.paidSats });
+  } else if (action === 'close' && ok) {
+    channelRegistry.upsert(channelId, { status: 'CLOSED', paidSats: data.paidSats, settleTxid: data.settleTxid || null });
+  }
+}
+
+// API: Prepare a channel (returns the contract locking script for the buyer to fund)
+app.post('/api/channel/prepare', async (req, res) => {
+  const { sessionPubKey, buyerAddress, model, ttlSec } = req.body;
+  if (!buyerAddress || !wallet.isValidAddress(buyerAddress)) {
+    return res.status(400).json({ error: 'A valid buyerAddress (refund address) is required' });
+  }
+  const candidates = Array.from(providerRegistry.providers.values()).filter(p => p.channelEndpoint);
+  const provider = candidates.find(p => !model || (p.model || '').includes(model) || model.includes(p.model || '')) || candidates[0];
+  if (!provider) {
+    return res.status(503).json({ error: 'No provider with payment channel support is online.' });
+  }
+
+  try {
+    const { status, data } = await relayToProvider(provider, '/proposal', { sessionPubKey, buyerAddress, ttlSec });
+    if (status !== 200) return res.status(status).json(data);
+
+    // Don't let the buyer fund a script that isn't our audited contract with these params
+    if (data.lockingScriptHex !== contractLib().channelLockingScript(data.params)) {
+      return res.status(502).json({ error: 'Provider returned a locking script that does not match the TokenChannel contract' });
+    }
+    if (data.params.providerAddress !== provider.bsvAddress || data.params.providerPubKey !== provider.channelPubKey) {
+      return res.status(502).json({ error: 'Provider returned channel keys/addresses that differ from its registration' });
+    }
+    channelRegistry.upsert(data.channelId, { providerName: provider.name, params: data.params });
+    res.json({ ...data, providerName: provider.name, model: provider.model, pricing: provider.pricing, network: config.BSV_NETWORK });
+  } catch (err) {
+    res.status(502).json({ error: `Provider unreachable: ${err.message}` });
+  }
+});
+
+// API: Relay channel actions to the provider that owns the channel
+for (const action of ['open', 'query', 'chunk', 'close']) {
+  app.post(`/api/channel/:id/${action}`, async (req, res) => {
+    const provider = channelProvider(req.params.id);
+    if (!provider) {
+      if (action === 'open' && channelRegistry.get(req.params.id)) {
+        recordChannelAction(req.params.id, action, req.body, 503, {});
+      }
+      return res.status(404).json({ error: 'Unknown channel or provider offline' });
+    }
+    try {
+      const { status, data } = await relayToProvider(provider, `/${req.params.id}/${action}`, req.body);
+      recordChannelAction(req.params.id, action, req.body, status, data);
+      res.status(status).json(data);
+    } catch (err) {
+      res.status(502).json({ error: `Provider unreachable: ${err.message}` });
+    }
+  });
+}
+
+// API: Build & broadcast the refund of an expired channel. Anyone may do this:
+// the contract only lets the deposit go back to the buyer's refund address.
+app.post('/api/channel/refund', async (req, res) => {
+  const { params, utxo } = req.body;
+  if (!params || !utxo) return res.status(400).json({ error: 'params and utxo are required' });
+  if (Math.floor(Date.now() / 1000) < params.expiry) {
+    return res.status(400).json({ error: `Channel has not expired yet (refund opens at ${new Date(params.expiry * 1000).toISOString()})` });
+  }
+  try {
+    const refundTx = contractLib().buildRefundTx(params, utxo);
+    const result = await explorer.broadcastRawTx(refundTx);
+    const refundTxid = typeof result === 'string' ? result : result.txid;
+    if (req.body.channelId && channelRegistry.get(req.body.channelId)) {
+      channelRegistry.upsert(req.body.channelId, { status: 'REFUNDED', refundTxid });
+    }
+    res.json({ success: true, refundTxid, refundTx });
+  } catch (err) {
+    // Miners judge nLockTime against chain time, which can trail the wall clock for a while
+    const hint = /final/i.test(err.message) ? ' Zincir saati henüz iade zamanına ulaşmadı; birkaç dakika sonra tekrar deneyin.' : '';
+    res.status(400).json({ error: `Refund failed: ${err.message}.${hint}` });
+  }
+});
+
+// API: Every channel this gateway brokered, with how much is still locked on-chain
+app.get('/api/channels', async (req, res) => {
+  res.json({ network: config.BSV_NETWORK, ...(await channelRegistry.summary(explorer)) });
+});
+
+// API: Let a browser report a channel it funded (e.g. from before the gateway kept records)
+app.post('/api/channels/track', (req, res) => {
+  const { channelId, params, utxo, providerName, status } = req.body;
+  if (!/^ch_[0-9a-f]{16}$/.test(channelId || '') || !params || !utxo || !/^[0-9a-f]{64}$/i.test(utxo.txid || '')) {
+    return res.status(400).json({ error: 'channelId, params and utxo are required' });
+  }
+  if (channelRegistry.get(channelId)) return res.json({ success: true, known: true });
+  channelRegistry.upsert(channelId, {
+    providerName: providerName || 'unknown',
+    params,
+    utxo: { txid: utxo.txid.toLowerCase(), vout: parseInt(utxo.vout, 10), satoshis: parseInt(utxo.satoshis, 10) },
+    status: status === 'OPEN' ? 'OPEN' : 'OPEN_FAILED'
+  });
+  res.json({ success: true, known: false });
+});
+
+app.get('/api/channel/:id', async (req, res) => {
+  const provider = channelProvider(req.params.id);
+  if (!provider) return res.status(404).json({ error: 'Unknown channel or provider offline' });
+  try {
+    const { status, data } = await relayToProvider(provider, `/${req.params.id}`);
+    res.status(status).json(data);
+  } catch (err) {
+    res.status(502).json({ error: `Provider unreachable: ${err.message}` });
   }
 });
 

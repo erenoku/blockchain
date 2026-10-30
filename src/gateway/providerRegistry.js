@@ -1,3 +1,5 @@
+const pricing = require('../pricing');
+
 class ProviderRegistry {
   constructor() {
     this.providers = new Map();
@@ -34,13 +36,18 @@ class ProviderRegistry {
       model: p.model,
       bsvAddress: p.bsvAddress,
       identityKey: p.identityKey || null,
-      priceSats: p.priceSats,
+      pricing: p.pricing,
+      supportsChannels: !!p.channelEndpoint,
       status: 'online',
       lastSeen: p.lastSeen
     }));
   }
 
-  getBestProvider(model = 'gemini-1.5-pro') {
+  /**
+   * Pick the cheapest matching provider for this request. Ranking uses a local
+   * token estimate; the chosen provider then returns an exact quote.
+   */
+  getBestProvider(model = 'gemini-1.5-pro', { prompt = '', maxOutputTokens } = {}) {
     const active = Array.from(this.providers.values()).filter(p => {
       if (!p.endpoint) return false;
       if (model && p.model && !p.model.toLowerCase().includes(model.toLowerCase()) && !model.toLowerCase().includes(p.model.toLowerCase())) {
@@ -55,8 +62,15 @@ class ProviderRegistry {
       return allActive[0] || null;
     }
 
-    // Sort by price ascending
-    active.sort((a, b) => a.priceSats - b.priceSats);
+    const inputTokens = pricing.estimateTokens(prompt);
+    const estimatedSats = (p) => pricing.quote({
+      inputTokens,
+      maxOutputTokens: pricing.clampMaxOutputTokens(maxOutputTokens, p.pricing),
+      pricing: p.pricing
+    }).totalSats;
+
+    // Sort by estimated request cost ascending
+    active.sort((a, b) => estimatedSats(a) - estimatedSats(b));
     return active[0];
   }
 }

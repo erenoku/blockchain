@@ -8,9 +8,12 @@ class InvoiceManager {
     this.swapHistory = [];
   }
 
-  createInvoice({ prompt, provider, customAmountSats = null }) {
+  /**
+   * @param {Object} quote - output of pricing.quote() plus tokenCountSource
+   */
+  createInvoice({ prompt, provider, quote }) {
     const id = `inv_${crypto.randomBytes(8).toString('hex')}`;
-    const amountSats = customAmountSats || provider.priceSats || config.DEFAULT_PRICE_SATS;
+    const amountSats = quote.totalSats;
 
     // Estimate USD value (rough estimate: 1 BSV ~ $50 -> 1 sat ~ $0.0000005)
     const estimatedUsd = ((amountSats * 50) / 1e8).toFixed(4);
@@ -29,6 +32,14 @@ class InvoiceManager {
       senderIdentityKey: null,
       amountSats,
       estimatedUsd,
+      pricing: provider.pricing,
+      inputTokens: quote.inputTokens,
+      maxOutputTokens: quote.maxOutputTokens,
+      inputSats: quote.inputSats,
+      outputSats: quote.outputSats,
+      tokenCountSource: quote.tokenCountSource || 'estimate',
+      usage: null,
+      actualCost: null,
       status: 'PENDING_PAYMENT', // PENDING_PAYMENT -> PAID -> COMPLETED -> EXPIRED
       createdAt: Date.now(),
       expiresAt: Date.now() + config.INVOICE_TTL_MS,
@@ -64,6 +75,8 @@ class InvoiceManager {
     if (!inv) throw new Error('Invoice not found');
     inv.status = 'COMPLETED';
     inv.answer = result.answer;
+    inv.usage = result.usage || null;
+    inv.actualCost = result.actualCost || null;
     inv.completedAt = Date.now();
 
     // Record into public swap history
@@ -71,6 +84,8 @@ class InvoiceManager {
       id: inv.id,
       model: inv.model,
       sats: inv.amountSats,
+      inputTokens: inv.actualCost ? inv.actualCost.inputTokens : inv.inputTokens,
+      outputTokens: inv.actualCost ? inv.actualCost.outputTokens : null,
       txid: inv.txid,
       providerAddress: inv.providerAddress,
       timestamp: inv.completedAt

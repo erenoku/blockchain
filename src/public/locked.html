@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kilitli Kanal Parası | BSV AI Swap</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* body is a flex column; auto margins would otherwise size this to the table's width */
+    .locked-page { width: 100%; max-width: 1100px; box-sizing: border-box; margin: 0 auto; padding: 24px 16px 48px; }
+    .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+    .page-head h1 { font-size: 1.4rem; margin: 0 0 4px; }
+    .page-head p { margin: 0; color: var(--text-muted); font-size: 0.85rem; max-width: 620px; }
+    .back-link { color: var(--text-muted); font-size: 0.85rem; text-decoration: none; }
+    .back-link:hover { color: var(--text-main); }
+
+    .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; }
+    .tile .t-label { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .tile .t-value { font-size: 1.5rem; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+    .tile .t-sub { color: var(--text-muted); font-size: 0.75rem; margin-top: 2px; }
+    .tile.gold .t-value { color: var(--gold); }
+    .tile.green .t-value { color: var(--green); }
+
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .filters { display: inline-flex; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; }
+    .filters button { background: none; border: 0; color: var(--text-muted); padding: 6px 12px; border-radius: 4px; cursor: pointer; font: inherit; font-size: 0.8rem; }
+    .filters button.active { background: var(--bg-card); color: var(--text-main); }
+    .updated { color: var(--text-muted); font-size: 0.75rem; }
+
+    .table-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { color: var(--text-muted); font-weight: 500; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr:last-child td { border-bottom: 0; }
+    td a { color: #93c5fd; text-decoration: none; font-family: var(--font-mono); font-size: 0.75rem; }
+    td a:hover { text-decoration: underline; }
+    .muted { color: var(--text-muted); }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+    .badge.locked { background: rgba(245, 158, 11, 0.15); color: var(--gold); }
+    .badge.spent { background: rgba(16, 185, 129, 0.15); color: var(--green); }
+    .badge.unknown { background: rgba(156, 163, 175, 0.15); color: var(--text-muted); }
+
+    .note { color: var(--text-muted); font-size: 0.75rem; margin-top: 12px; line-height: 1.5; }
+
+    @media (max-width: 800px) {
+      .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="brand-title">BSV AI SWAP</span>
+        <span class="brand-subtitle">Kontratta Kilitli Para</span>
+      </div>
+    </div>
+    <div class="nav-metrics">
+      <div class="metric-pill">
+        <span class="dot green"></span>
+        <span id="network-badge">BSV</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="locked-page">
+    <div class="page-head">
+      <div>
+        <a class="back-link" href="/">← Swap ekranına dön</a>
+        <h1>🔐 Kontratta Kilitli Para</h1>
+        <p>Bu gateway üzerinden açılan token kanalları. "Kilitli" durumundaki paralar zincirde hâlâ smart contract içinde duruyor; kanal kapanınca ya da süre dolup iade alınınca serbest kalır.</p>
+      </div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile gold">
+        <div class="t-label">Şu an kilitli</div>
+        <div class="t-value" id="t-locked">–</div>
+        <div class="t-sub" id="t-locked-sub"></div>
+      </div>
+      <div class="tile">
+        <div class="t-label">İadesi açık</div>
+        <div class="t-value" id="t-refund">–</div>
+        <div class="t-sub" id="t-refund-sub"></div>
+      </div>
+      <div class="tile green">
+        <div class="t-label">Provider'lara ödenen</div>
+        <div class="t-value" id="t-paid">–</div>
+        <div class="t-sub">kapanan kanallardan</div>
+      </div>
+      <div class="tile">
+        <div class="t-label">Toplam kanal</div>
+        <div class="t-value" id="t-total">–</div>
+        <div class="t-sub" id="t-total-sub"></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="filters" role="tablist">
+        <button type="button" data-filter="locked" class="active">Kilitli</button>
+        <button type="button" data-filter="all">Tümü</button>
+      </div>
+      <span class="updated" id="updated"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Zincir durumu</th>
+            <th>Kanal</th>
+            <th>Provider</th>
+            <th class="num">Depozito</th>
+            <th class="num">Ödenen</th>
+            <th class="num">İade edilebilir</th>
+            <th>İade açılışı</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="8" class="muted">Yükleniyor...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note">
+      Zincir durumu WhatsOnChain'den okunur: <b>Kilitli</b> = depozito kontratta harcanmamış, <b>Serbest</b> = kanal kapandı veya iade edildi,
+      <b>Bilinmiyor</b> = explorer yanıt vermedi. İade, depoyu yatıran tarayıcıdaki "İade Al" butonuyla yapılır; böylece para doğrudan sahibinin BSV Desktop cüzdanına geri girer.
+    </p>
+  </main>
+
+  <script src="locked.js"></script>
+</body>
+</html>

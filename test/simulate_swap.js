@@ -11,6 +11,7 @@ const wallet = require('../src/bsv/wallet');
 const invoiceManager = require('../src/gateway/invoiceManager');
 const providerRegistry = require('../src/gateway/providerRegistry');
 const GeminiService = require('../src/provider/gemini');
+const pricing = require('../src/pricing');
 
 async function simulate() {
   console.log('--- Simulating BSV AI Swap Full Loop ---');
@@ -24,14 +25,17 @@ async function simulate() {
     name: 'Gemini Pro Live Node',
     model: 'gemini-1.5-pro',
     bsvAddress: providerWallet.address,
-    priceSats: 500,
+    pricing: pricing.normalizePricing({ inputPer1k: 100, outputPer1k: 400 }),
     endpoint: 'mock'
   };
   providerRegistry.register(provider);
 
   // 2. Buyer creates invoice
   const prompt = 'What is the utility of BSV microtransactions for AI?';
-  const invoice = invoiceManager.createInvoice({ prompt, provider });
+  const gemini = new GeminiService(process.env.GEMINI_API_KEY, 'gemini-1.5-pro');
+  const { inputTokens, source } = await gemini.countTokens(prompt);
+  const quote = { ...pricing.quote({ inputTokens, maxOutputTokens: 1024, pricing: provider.pricing }), tokenCountSource: source };
+  const invoice = invoiceManager.createInvoice({ prompt, provider, quote });
   console.log(`Invoice created: ${invoice.id} for ${invoice.amountSats} satoshis`);
 
   // 3. Buyer pays from BSV Desktop (Simulating TX creation)
@@ -41,13 +45,14 @@ async function simulate() {
   // 4. Verification
   invoiceManager.markPaid(invoice.id, {
     txid: '3f8a42e5b91c8901' + '0'.repeat(48),
-    paidSats: 500
+    paidSats: invoice.amountSats
   });
 
   // 5. Provider executes Gemini Pro
-  const gemini = new GeminiService(process.env.GEMINI_API_KEY, 'gemini-1.5-pro');
-  const result = await gemini.generateAnswer(prompt);
+  const result = await gemini.generateAnswer(prompt, { maxOutputTokens: invoice.maxOutputTokens });
+  result.actualCost = pricing.actualCost({ usage: result.usage, pricing: provider.pricing });
   invoiceManager.markCompleted(invoice.id, result);
+  console.log(`Token usage: ${result.actualCost.inputTokens} in / ${result.actualCost.outputTokens} out = ${result.actualCost.totalSats} sats (paid ${invoice.amountSats})`);
 
   console.log('\n--- AI Response Delivered ---');
   console.log('Model:', result.model);

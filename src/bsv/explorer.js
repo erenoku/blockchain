@@ -29,6 +29,19 @@ class WhatsOnChainClient {
   }
 
   /**
+   * Which transaction spent txid:vout? Returns { txid, vin } or null if unspent.
+   * Throws when the explorer can't tell (unknown tx, network error).
+   */
+  async getSpentBy(txid, vout) {
+    const res = await fetch(`${this.baseUrl}/tx/${txid}/${vout}/spent`, {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'BSV-AI-Swap/1.0' }
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`WhatsOnChain error [${res.status}]`);
+    return await res.json();
+  }
+
+  /**
    * Fetch confirmed and unconfirmed UTXOs for an address
    */
   async getUtxos(address) {

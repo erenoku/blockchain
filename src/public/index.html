@@ -32,6 +32,10 @@
         <span class="label">Total Sats Swapped:</span>
         <span id="total-sats-count" class="value">0</span>
       </div>
+      <a class="metric-pill" href="/locked.html" style="text-decoration:none; color:inherit;">
+        <span class="label">🔐 Kilitli:</span>
+        <span id="nav-locked-sats" class="value">0 sats</span>
+      </a>
     </div>
   </header>
 
@@ -98,10 +102,44 @@
           <textarea id="prompt-input" rows="4" placeholder="Ask anything... (e.g. 'Explain quantum computing in 3 bullet points' or 'Write a smart contract outline')">Explain how BSV microtransactions enable pay-per-token AI inference without subscription lock-in.</textarea>
         </div>
 
+        <!-- Token Budget (output cap paid up-front) -->
+        <div class="input-group">
+          <label for="max-output-select">Maksimum Cevap Uzunluğu (output token)</label>
+          <select id="max-output-select" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff; font-size:0.85rem;">
+            <option value="256">256 token (kısa)</option>
+            <option value="512">512 token</option>
+            <option value="1024" selected>1024 token (varsayılan)</option>
+            <option value="2048">2048 token</option>
+            <option value="4096">4096 token (uzun)</option>
+          </select>
+          <div id="quote-breakdown" style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">Fiyat hesaplanıyor...</div>
+        </div>
+
         <!-- Action Button -->
         <button id="btn-request-invoice" class="btn btn-primary">
           <span>⚡ Sor & BSV Desktop'ta Onayla</span>
         </button>
+
+        <!-- TokenChannel: smart contract payment channel (pay per streamed chunk) -->
+        <div id="channel-panel" class="input-group" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 14px; border-radius: 12px; margin-top: 16px;">
+          <label style="margin:0 0 4px; color:#a7f3d0; font-weight:600;">🔒 Token Kanalı (Smart Contract)</label>
+          <div style="font-size:0.75rem; color:#9ca3af; margin-bottom:10px;">Bir kez para kilitleyin, sonra sadece okuduğunuz token kadar ödeyin. Kalan para kanal kapanınca cüzdanınıza döner.</div>
+          <div id="channel-closed-view" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="number" id="channel-deposit" value="5000" min="100" step="100" style="width:120px; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff;">
+            <span style="color:#9ca3af; font-size:0.8rem;">sats</span>
+            <button type="button" id="btn-channel-open" class="btn-copy" style="padding:8px 12px; border-radius:8px; cursor:pointer;">Kanal Aç (BSV Desktop'ta 1 onay)</button>
+          </div>
+          <div id="channel-open-view" class="hidden">
+            <div id="channel-status" style="font-size:0.8rem; color:#d1fae5;"></div>
+            <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+              <button type="button" id="btn-channel-ask" class="btn btn-primary" style="flex:1; min-width:180px;"><span>⚡ Kanalla Sor</span></button>
+              <button type="button" id="btn-channel-stop" class="btn-copy hidden" style="padding:8px 12px; border-radius:8px; cursor:pointer;">⏹ Durdur</button>
+              <button type="button" id="btn-channel-close" class="btn-copy" style="padding:8px 12px; border-radius:8px; cursor:pointer;">Kanalı Kapat &amp; Kalanı Geri Al</button>
+            </div>
+          </div>
+          <div id="channel-message" style="font-size:0.75rem; color:#9ca3af; margin-top:8px;"></div>
+          <div id="channel-locked-list" style="margin-top:10px;"></div>
+        </div>
 
         <!-- Payment Invoice Drawer / Modal (Hidden until invoice created) -->
         <div id="invoice-modal" class="invoice-container hidden">
@@ -174,6 +212,7 @@
             </div>
           </div>
           <div id="ai-answer-content" class="ai-text"></div>
+          <div id="token-usage-summary" style="font-size:0.75rem; color:#9ca3af; margin-top:10px;"></div>
         </div>
       </section>
 
@@ -187,6 +226,17 @@
           </div>
           <div id="providers-list" class="provider-nodes-list">
             <div class="empty-state">Looking for active providers...</div>
+          </div>
+        </div>
+
+        <!-- Deposits locked in TokenChannel contracts (from the gateway's channel records) -->
+        <div class="card sidebar-card">
+          <div class="card-header small">
+            <h3>🔐 Kontratta Kilitli Para</h3>
+            <a href="/locked.html" class="refresh-indicator" style="text-decoration:none;"><span id="gateway-locked-total">0 sats</span> · Detaylar ↗</a>
+          </div>
+          <div id="gateway-locked-funds" class="swaps-list">
+            <div class="empty-state">Kontratta kilitli para yok.</div>
           </div>
         </div>
 
@@ -205,6 +255,9 @@
   </main>
 
   <script src="messagebox-bundle.js"></script>
+  <script src="vendor/bsv-sdk.js"></script>
+  <script src="channelClient.js"></script>
   <script src="app.js"></script>
+  <script src="channelUi.js"></script>
 </body>
 </html>
