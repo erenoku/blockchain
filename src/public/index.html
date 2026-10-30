@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BSV AI Token Swap | Decentralized Micro-Inference Pool</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="brand-title">BSV AI SWAP</span>
+        <span class="brand-subtitle">Powered by Bitcoin SV & Gemini Pro</span>
+      </div>
+    </div>
+    <div class="nav-metrics">
+      <div class="metric-pill">
+        <span class="dot green"></span>
+        <span id="network-badge">BSV MAINNET</span>
+      </div>
+      <div class="metric-pill">
+        <span class="label">Providers Online:</span>
+        <span id="provider-count" class="value">0</span>
+      </div>
+      <div class="metric-pill">
+        <span class="label">Total Sats Swapped:</span>
+        <span id="total-sats-count" class="value">0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Swap Workspace -->
+  <main class="container">
+    <div class="grid-layout">
+      <!-- Left: Swap / AI Query Card -->
+      <section class="card swap-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2>Swap Satoshis for AI Compute</h2>
+            <p class="card-desc">Execute real queries with Google Gemini Pro via peer-to-peer BSV microtransactions.</p>
+          </div>
+          <div class="badge-defi">BSV Desktop 1-Click Pay</div>
+        </div>
+
+        <!-- Token Pair Selector -->
+        <div class="swap-tokens-wrapper">
+          <div class="token-row">
+            <div class="token-label">YOU PAY</div>
+            <div class="token-select-box">
+              <span class="crypto-icon">₿</span>
+              <span class="crypto-name">BSV (Satoshis)</span>
+            </div>
+            <div class="token-amount" id="display-fee-sats">500 Sats</div>
+          </div>
+
+          <div class="swap-arrow-divider">
+            <div class="arrow-circle">↓</div>
+          </div>
+
+          <div class="token-row">
+            <div class="token-label">YOU RECEIVE</div>
+            <div class="token-select-box">
+              <span class="crypto-icon">✨</span>
+              <select id="model-select" class="model-dropdown">
+                <option value="gemini-3.5-flash">Gemini 3.5 Flash (Ultra Fast)</option>
+                <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+              </select>
+            </div>
+            <div class="token-amount usd-est" id="display-fee-usd">~$0.00025 USD</div>
+          </div>
+        </div>
+
+        <!-- Prompt Input -->
+        <div class="input-group">
+          <label for="prompt-input">Your Question / Prompt for Gemini Pro</label>
+          <textarea id="prompt-input" rows="4" placeholder="Ask anything... (e.g. 'Explain quantum computing in 3 bullet points' or 'Write a smart contract outline')">Explain how BSV microtransactions enable pay-per-token AI inference without subscription lock-in.</textarea>
+        </div>
+
+        <!-- Action Button -->
+        <button id="btn-request-invoice" class="btn btn-primary">
+          <span>⚡ Sor & BSV Desktop'a Aktar</span>
+        </button>
+
+        <!-- Payment Invoice Drawer / Modal (Hidden until invoice created) -->
+        <div id="invoice-modal" class="invoice-container hidden">
+          <div class="invoice-box">
+            <div class="invoice-header">
+              <h3>BSV Desktop Transferi Hazırlandı</h3>
+              <span class="status-tag auto-listening"><span class="pulse"></span> Mempool Dinleniyor...</span>
+            </div>
+
+            <div class="invoice-body">
+              <div class="qr-container">
+                <img id="invoice-qr" src="" alt="Payment QR Code">
+              </div>
+
+              <div class="invoice-details">
+                <!-- Deep-link Auto-Approve Button -->
+                <div class="app-redirect-box">
+                  <a id="btn-open-desktop-app" href="#" class="btn btn-launch">
+                    <span>🚀 BSV Desktop'ta Aç ve Sadece Onayla</span>
+                  </a>
+                  <p class="launch-hint">Yukarıdaki butona tıklayınca BSV Desktop cüzdanınız açılır, tutar (500 sat) ve adres otomatik doldurulur. Siz sadece <b>"Gönder / Onayla"</b> butonuna basarsınız.</p>
+                </div>
+
+                <div class="field-item">
+                  <span class="field-label">Provider BSV Adresi:</span>
+                  <div class="copy-field">
+                    <input type="text" id="inv-provider-address" readonly>
+                    <button class="btn-copy" onclick="copyText('inv-provider-address')">Kopyala</button>
+                  </div>
+                </div>
+
+                <div class="field-item">
+                  <span class="field-label">Gönderilecek Tutar:</span>
+                  <div class="copy-field">
+                    <input type="text" id="inv-amount-sats" readonly>
+                    <button class="btn-copy" onclick="copyText('inv-amount-sats')">Kopyala</button>
+                  </div>
+                </div>
+
+                <!-- Auto-detection notification -->
+                <div class="desktop-instructions highlight-auto">
+                  <div class="listening-bar">
+                    <div class="spinner"></div>
+                    <span id="auto-detect-status">BSV Desktop'tan Onayla'ya basmanız bekleniyor. Bastığınız an otomatik başlayacak!</span>
+                  </div>
+                </div>
+
+                <!-- Manual fallback option -->
+                <details class="manual-tx-details">
+                  <summary>Manuel TXID ile zorla çalıştır (İsteğe bağlı)</summary>
+                  <div class="manual-tx-content">
+                    <input type="text" id="input-txid" placeholder="İşlem ID'si (TXID)...">
+                    <button id="btn-verify-txid" class="btn btn-sm btn-accent">Doğrula</button>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result / AI Answer Card -->
+        <div id="result-card" class="result-box hidden">
+          <div class="result-header">
+            <div class="result-title">
+              <span class="sparkle">✨</span> Gemini Pro Cevabı
+            </div>
+            <div class="tx-receipt-link">
+              <span class="verified-icon">✔ Blokzincir Onaylı (0-Conf):</span>
+              <a id="tx-explorer-link" href="#" target="_blank" rel="noopener">WhatsOnChain'de Görüntüle ↗</a>
+            </div>
+          </div>
+          <div id="ai-answer-content" class="ai-text"></div>
+        </div>
+      </section>
+
+      <!-- Right: Network Providers & Live Transaction Stream -->
+      <aside class="sidebar">
+        <!-- Active Providers Card -->
+        <div class="card sidebar-card">
+          <div class="card-header small">
+            <h3>Active AI Provider Nodes</h3>
+            <span class="live-dot-container"><span class="dot green"></span> Live</span>
+          </div>
+          <div id="providers-list" class="provider-nodes-list">
+            <div class="empty-state">Looking for active providers...</div>
+          </div>
+        </div>
+
+        <!-- Live On-Chain Swaps Ticker -->
+        <div class="card sidebar-card">
+          <div class="card-header small">
+            <h3>Recent Swaps (WhatsOnChain)</h3>
+            <span class="refresh-indicator">Auto-refresh</span>
+          </div>
+          <div id="swaps-history" class="swaps-list">
+            <div class="empty-state">No swaps yet. Be the first to swap!</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

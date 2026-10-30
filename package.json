@@ -1,0 +1,30 @@
+{
+  "name": "bsv_ai_pool",
+  "version": "1.0.0",
+  "description": "Decentralized BSV Satoshis Microtransaction Swap for AI Compute (Gemini Pro)",
+  "main": "src/gateway/server.js",
+  "scripts": {
+    "gateway": "node src/gateway/server.js",
+    "provider": "node src/provider/agent.js",
+    "start": "node src/gateway/server.js",
+    "test": "node test/test_all.js"
+  },
+  "keywords": [
+    "bsv",
+    "bitcoin-sv",
+    "microtransactions",
+    "gemini-pro",
+    "ai-gateway",
+    "defi",
+    "402-payment"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@bsv/sdk": "^1.2.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
