@@ -91,6 +91,18 @@ The provider will register itself with the Gateway, display its BSV Desktop addr
 3. Type your prompt (e.g. *"Explain quantum computing in 3 bullets"*).
 4. Click **⚡ Swap Sats & Ask AI**.
 
+### ChatGPT / OpenAI configuration
+
+Set `OPENAI_API_KEY` in the provider's `.env` to use the ChatGPT choices.
+The selected model is preserved for quotes, invoices, paid execution, and
+payment-channel queries. A Gemini provider is never substituted when the
+requested OpenAI model is unavailable. Restart the gateway and provider after
+changing their configuration, and refresh the browser after code updates.
+
+An OpenAI `429 / insufficient_quota` or `credit_balance_exhausted` error means
+the API account needs credit. The app reports this failure instead of returning
+a simulated successful ChatGPT answer. No API keys belong in browser code.
+
 ### Step 4: Pay with BSV Desktop
 An on-chain invoice appears with:
 - **Provider Address** (with 1-click Copy button)

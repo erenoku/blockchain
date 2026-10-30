@@ -1,4 +1,5 @@
 const pricing = require('../pricing');
+const { supportsModel } = require('../modelRouting');
 
 class ProviderRegistry {
   constructor() {
@@ -34,6 +35,7 @@ class ProviderRegistry {
       id: p.id,
       name: p.name,
       model: p.model,
+      supportedModels: p.supportedModels || [p.model],
       bsvAddress: p.bsvAddress,
       identityKey: p.identityKey || null,
       pricing: p.pricing,
@@ -47,19 +49,15 @@ class ProviderRegistry {
    * Pick the cheapest matching provider for this request. Ranking uses a local
    * token estimate; the chosen provider then returns an exact quote.
    */
-  getBestProvider(model = 'gemini-1.5-pro', { prompt = '', maxOutputTokens } = {}) {
+  getBestProvider(model = 'gemini-1.5-pro', { prompt = '', maxOutputTokens, requireChannels = false } = {}) {
     const active = Array.from(this.providers.values()).filter(p => {
       if (!p.endpoint) return false;
-      if (model && p.model && !p.model.toLowerCase().includes(model.toLowerCase()) && !model.toLowerCase().includes(p.model.toLowerCase())) {
-        return false;
-      }
-      return true;
+      if (requireChannels && !p.channelEndpoint) return false;
+      return supportsModel(p, model);
     });
 
     if (active.length === 0) {
-      // Fallback to any online provider
-      const allActive = Array.from(this.providers.values());
-      return allActive[0] || null;
+      return null;
     }
 
     const inputTokens = pricing.estimateTokens(prompt);

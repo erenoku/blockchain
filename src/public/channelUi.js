@@ -306,8 +306,11 @@
     message('Provider cevabı hazırlıyor...');
     const q = await post(`/api/channel/${channel.channelId}/query`, {
       prompt,
+      model: el('model-select').value,
       maxOutputTokens: getMaxOutputTokens()
     });
+    el('result-model-label').textContent = `AI Cevabı (${q.model})`;
+    el('result-icon').textContent = /^(gpt-|chatgpt-|o\d)/i.test(q.model) ? '🤖' : '✨';
 
     // Never trust the provider's numbers blindly: cap the query at the advertised price
     const promptEstimate = Math.ceil(prompt.length / 4);
@@ -315,11 +318,9 @@
       throw new Error(`Provider girdi token sayısını şüpheli bildirdi (${q.inputTokens}). Ödeme yapılmadı.`);
     }
     const capSats = ChannelClient.maxQuerySats(channel.pricing, q.inputTokens, q.maxOutputTokens);
-    const allowedSats = ChannelClient.allowedQuerySats(capSats);
-    if (q.totalQuerySats > allowedSats) {
-      throw new Error(`Provider ${q.totalQuerySats} sats istedi; fiyat tavanı ${capSats} sats, %${ChannelClient.OVER_CAP_TOLERANCE_PCT} toleransla en fazla ${allowedSats} sats. Ödeme yapılmadı.`);
+    if (q.totalQuerySats > capSats) {
+      throw new Error(`Provider ${q.totalQuerySats} sats istedi, fiyat tavanı ${capSats} sats. Ödeme yapılmadı.`);
     }
-    const overCapSats = Math.max(0, q.totalQuerySats - capSats);
     const state = { baseSats: channel.paidSats, capSats, lastStateSats: channel.paidSats };
 
     let terms = q.next;
@@ -351,8 +352,7 @@
     const querySats = state.lastStateSats - state.baseSats;
     el('token-usage-summary').textContent =
       `Bu soru: ${querySats} sats (${chunks}/${q.totalChunks} parça, ${q.inputTokens} girdi token) · ` +
-      `Fiyat tavanı ${capSats} sats idi${overCapSats > 0 ? ` (provider tavanı ${overCapSats} sats aştı, %${ChannelClient.OVER_CAP_TOLERANCE_PCT} tolerans içinde olduğu için ödendi)` : ''} · ` +
-      `Kanalda kalan: ${capacity() - channel.paidSats} sats`;
+      `Fiyat tavanı ${capSats} sats idi · Kanalda kalan: ${capacity() - channel.paidSats} sats`;
     if (!stopRequested) message('✔ Cevap tamamlandı.', '#10b981');
     if (typeof refreshState === 'function') refreshState();
   }

@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
 module.exports = {
   // Network: 'mainnet' or 'testnet'
@@ -19,7 +19,7 @@ module.exports = {
   MIN_PRICE_SATS: parseInt(process.env.MIN_PRICE_SATS || '50', 10),
 
   // Output token cap the buyer pays for up-front (default, and hard upper limit)
-  DEFAULT_MAX_OUTPUT_TOKENS: parseInt(process.env.DEFAULT_MAX_OUTPUT_TOKENS || '4096', 10),
+  DEFAULT_MAX_OUTPUT_TOKENS: parseInt(process.env.DEFAULT_MAX_OUTPUT_TOKENS || '1024', 10),
   MAX_OUTPUT_TOKENS_LIMIT: parseInt(process.env.MAX_OUTPUT_TOKENS_LIMIT || '8192', 10),
 
   // WhatsOnChain API endpoints ('main' or 'test')

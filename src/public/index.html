@@ -16,7 +16,7 @@
       <div class="logo-icon">⚡</div>
       <div class="logo-text">
         <span class="brand-title">BSV AI SWAP</span>
-        <span class="brand-subtitle">Powered by Bitcoin SV & Gemini Pro</span>
+        <span class="brand-subtitle">Powered by Bitcoin SV, OpenAI & Gemini</span>
       </div>
     </div>
     <div class="nav-metrics">
@@ -47,7 +47,7 @@
         <div class="card-header">
           <div class="card-title-group">
             <h2>Swap Satoshis for AI Compute</h2>
-            <p class="card-desc">Execute real queries with Google Gemini Pro via peer-to-peer BSV microtransactions.</p>
+            <p class="card-desc">Execute real queries with ChatGPT & Google Gemini via peer-to-peer BSV microtransactions.</p>
           </div>
           <div class="badge-defi">BSV Desktop 1-Click Pay</div>
         </div>
@@ -70,11 +70,18 @@
           <div class="token-row">
             <div class="token-label">YOU RECEIVE</div>
             <div class="token-select-box">
-              <span class="crypto-icon">✨</span>
+              <span class="crypto-icon" id="ai-icon">✨</span>
               <select id="model-select" class="model-dropdown">
-                <option value="gemini-3.5-flash">Gemini 3.5 Flash (Ultra Fast)</option>
-                <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
-                <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                <optgroup label="🤖 OpenAI (ChatGPT)">
+                  <option value="gpt-4o" selected>ChatGPT GPT-4o (OpenAI)</option>
+                  <option value="gpt-4o-mini">ChatGPT GPT-4o Mini (Hızlı & Ekonomik)</option>
+                </optgroup>
+                <optgroup label="✨ Google Gemini">
+                  <option value="gemini-3.5-flash">Gemini 3.5 Flash (Ultra Fast)</option>
+                  <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                  <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                </optgroup>
               </select>
             </div>
             <div class="token-amount usd-est" id="display-fee-usd">~$0.00025 USD</div>
@@ -98,14 +105,27 @@
 
         <!-- Prompt Input -->
         <div class="input-group">
-          <label for="prompt-input">Your Question / Prompt for Gemini Pro</label>
+          <label for="prompt-input">Your Question / Prompt for AI (ChatGPT / Gemini)</label>
           <textarea id="prompt-input" rows="4" placeholder="Ask anything... (e.g. 'Explain quantum computing in 3 bullet points' or 'Write a smart contract outline')">Explain how BSV microtransactions enable pay-per-token AI inference without subscription lock-in.</textarea>
         </div>
 
-        <!-- Price estimate (answers are capped at a fixed 4096 output tokens) -->
+        <!-- Token Budget (output cap paid up-front) -->
         <div class="input-group">
+          <label for="max-output-select">Maksimum Cevap Uzunluğu (output token)</label>
+          <select id="max-output-select" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff; font-size:0.85rem;">
+            <option value="256">256 token (kısa)</option>
+            <option value="512">512 token</option>
+            <option value="1024" selected>1024 token (varsayılan)</option>
+            <option value="2048">2048 token</option>
+            <option value="4096">4096 token (uzun)</option>
+          </select>
           <div id="quote-breakdown" style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">Fiyat hesaplanıyor...</div>
         </div>
+
+        <!-- Action Button -->
+        <button id="btn-request-invoice" class="btn btn-primary">
+          <span>⚡ Sor & BSV Desktop'ta Onayla</span>
+        </button>
 
         <!-- TokenChannel: smart contract payment channel (pay per streamed chunk) -->
         <div id="channel-panel" class="input-group" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 14px; border-radius: 12px; margin-top: 16px;">
@@ -128,11 +148,70 @@
           <div id="channel-locked-list" style="margin-top:10px;"></div>
         </div>
 
+        <!-- Payment Invoice Drawer / Modal (Hidden until invoice created) -->
+        <div id="invoice-modal" class="invoice-container hidden">
+          <div class="invoice-box">
+            <div class="invoice-header">
+              <h3>BSV Desktop Transferi Hazırlandı</h3>
+              <span class="status-tag auto-listening"><span class="pulse"></span> Mempool Dinleniyor...</span>
+            </div>
+
+            <div class="invoice-body">
+              <div class="qr-container">
+                <img id="invoice-qr" src="" alt="Payment QR Code">
+              </div>
+
+              <div class="invoice-details">
+                <!-- Deep-link Auto-Approve Button -->
+                <div class="app-redirect-box">
+                  <a id="btn-open-desktop-app" href="#" class="btn btn-launch">
+                    <span>🚀 BSV Desktop'ta Aç ve Sadece Onayla</span>
+                  </a>
+                  <p class="launch-hint">Yukarıdaki butona tıklayınca BSV Desktop cüzdanınız açılır, tutar (500 sat) ve adres otomatik doldurulur. Siz sadece <b>"Gönder / Onayla"</b> butonuna basarsınız.</p>
+                </div>
+
+                <div class="field-item">
+                  <span class="field-label">Provider BSV Adresi:</span>
+                  <div class="copy-field">
+                    <input type="text" id="inv-provider-address" readonly>
+                    <button class="btn-copy" onclick="copyText('inv-provider-address')">Kopyala</button>
+                  </div>
+                </div>
+
+                <div class="field-item">
+                  <span class="field-label">Gönderilecek Tutar:</span>
+                  <div class="copy-field">
+                    <input type="text" id="inv-amount-sats" readonly>
+                    <button class="btn-copy" onclick="copyText('inv-amount-sats')">Kopyala</button>
+                  </div>
+                </div>
+
+                <!-- Auto-detection notification -->
+                <div class="desktop-instructions highlight-auto">
+                  <div class="listening-bar">
+                    <div class="spinner"></div>
+                    <span id="auto-detect-status">BSV Desktop'tan Onayla'ya basmanız bekleniyor. Bastığınız an otomatik başlayacak!</span>
+                  </div>
+                </div>
+
+                <!-- Manual fallback option -->
+                <details class="manual-tx-details">
+                  <summary>Manuel TXID ile zorla çalıştır (İsteğe bağlı)</summary>
+                  <div class="manual-tx-content">
+                    <input type="text" id="input-txid" placeholder="İşlem ID'si (TXID)...">
+                    <button id="btn-verify-txid" class="btn btn-sm btn-accent">Doğrula</button>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Result / AI Answer Card -->
         <div id="result-card" class="result-box hidden">
           <div class="result-header">
             <div class="result-title">
-              <span class="sparkle">✨</span> Gemini Pro Cevabı
+              <span class="sparkle" id="result-icon">✨</span> <span id="result-model-label">AI Cevabı</span>
             </div>
             <div class="tx-receipt-link">
               <span class="verified-icon">✔ Blokzincir Onaylı (0-Conf):</span>
