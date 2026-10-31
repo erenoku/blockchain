@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0f2c">
+  <title>Provider Console | PromptBazaar</title>
+  <link rel="icon" href="brand.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="experience.css">
+  <link rel="stylesheet" href="site.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="experience provider-page">
+  <a class="skip-link" href="#provider-main">Skip to content</a>
+
+  <header class="navbar">
+    <div class="nav-inner top-bar">
+      <a class="nav-brand" href="/" aria-label="PromptBazaar home">
+        <svg class="logo-icon" width="24" height="24" viewBox="0 0 36 36" aria-hidden="true">
+          <rect x="1.5" y="1.5" width="33" height="33" rx="8.5" fill="var(--logo-bg)" stroke="var(--logo-ring)" stroke-width="1.5"/>
+          <path d="M6.8 13.6C8.9 9.6 13.1 7.1 18 7.1s9.1 2.5 11.2 6.5l-2 .8C25.3 11.3 21.9 9.6 18 9.6s-7.3 1.7-9.2 4.8Z" fill="var(--logo-mark)"/><path d="M10 13.6h16v17H10Z" fill="var(--logo-mark)"/><path d="M13.2 30.6v-8.4c0-3.3 2.1-5.4 4.8-6.9 2.7 1.5 4.8 3.6 4.8 6.9v8.4Z" fill="var(--logo-bg)"/><path d="M13.8 22.6h8.4v1.1h-8.4ZM17.45 23.7h1.1v6.9h-1.1Z" fill="var(--saffron)"/><path d="M10 18.4h3v.8h-3ZM23 18.4h3v.8h-3ZM10 22.8h3v.8h-3ZM23 22.8h3v.8h-3ZM10 27h3v.8h-3ZM23 27h3v.8h-3Z" fill="var(--logo-bg)"/>
+        </svg>
+        <span class="brand-title">prompt<span class="brand-light">bazaar</span></span>
+      </a>
+
+      <div class="nav-user-actions">
+          <details class="palette-menu" id="accent-menu">
+          <summary aria-label="Choose accent color"><span class="accent-preview"></span><span>Accent</span></summary>
+          <div class="palette-popover">
+            <strong>Accent color</strong>
+            <p>Choose an interface accent.</p>
+            <div class="palette-options" role="group" aria-label="Accent presets">
+              <button type="button" class="color-swatch" data-accent="#2fb8bc" aria-label="Turquoise" aria-pressed="true" style="--swatch:#2fb8bc"></button>
+              <button type="button" class="color-swatch" data-accent="#3a9e88" aria-label="Jade" aria-pressed="false" style="--swatch:#3a9e88"></button>
+              <button type="button" class="color-swatch" data-accent="#3b4fc4" aria-label="Lapis" aria-pressed="false" style="--swatch:#3b4fc4"></button>
+              <button type="button" class="color-swatch" data-accent="#e5a823" aria-label="Saffron" aria-pressed="false" style="--swatch:#e5a823"></button>
+              <button type="button" class="color-swatch" data-accent="#d0503c" aria-label="Coral" aria-pressed="false" style="--swatch:#d0503c"></button>
+            </div>
+            <label class="custom-accent" for="custom-accent">Custom <span id="accent-value">#2FB8BC</span><input id="custom-accent" type="color" value="#2fb8bc" aria-label="Custom accent color"></label>
+          </div>
+        </details>
+        <div id="nav-user-cluster" class="nav-user-cluster"></div>
+      </div>
+    </div>
+
+    <div class="nav-subbar">
+      <div class="nav-subbar-inner">
+        <nav class="nav-segmented" id="primary-nav" aria-label="Primary navigation">
+          <a class="nav-tab" href="/">Ask AI</a>
+          <a class="nav-tab" href="/market.html">Marketplace</a>
+          <a class="nav-tab active" href="/provider.html">Become a Provider</a>
+          <a class="nav-tab" href="/locked.html">Locked Funds</a>
+        </nav>
+
+        <div class="nav-metrics">
+          <div class="nav-telemetry">
+            <span class="network-badge-item">
+              <span class="dot green"></span>
+              <span id="network-badge">BSV MAINNET</span>
+            </span>
+            <span class="stat-divider">·</span>
+            <span class="telemetry-item">
+              <span id="provider-count" class="value">0</span>
+              <span class="label">nodes</span>
+            </span>
+            <span class="stat-divider">·</span>
+            <span class="telemetry-item">
+              <span id="total-sats-count" class="value">0</span>
+              <span class="label">sats</span>
+            </span>
+            <span class="stat-divider">·</span>
+            <a class="telemetry-item locked-link" href="/locked.html" aria-label="View locked funds">
+              <span id="nav-locked-sats" class="value">0 sats</span>
+              <span class="label">locked</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" id="provider-main">
+    <h1 class="page-title" id="page-title">Become a Provider</h1>
+    <p class="page-sub" id="page-sub">Add your API key, choose the models you want to offer, and set your pricing. Customers will see you in the marketplace and payments go directly to your wallet.</p>
+
+    <!-- Status (existing providers) -->
+    <section id="status-card" class="card hidden">
+      <div class="card-header small">
+        <h3>Status</h3>
+        <span id="status-pill" class="status-pill ok">Live</span>
+      </div>
+      <div class="provider-section-body">
+        <div id="status-text" class="hint"></div>
+        <div class="btn-row">
+          <button type="button" id="btn-toggle" class="btn-secondary">Take offline</button>
+        </div>
+      </div>
+    </section>
+
+    <form id="provider-form" class="form-grid section-gap" autocomplete="off">
+      <section class="card">
+        <div class="card-header small"><h3>Profile</h3></div>
+        <div class="provider-section-body">
+          <div class="field">
+            <label for="f-name">Display name (shown in the marketplace)</label>
+            <input id="f-name" maxlength="60" placeholder="e.g. Fast GPU Node" required>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header small"><h3>API keys</h3></div>
+        <div class="provider-section-body">
+          <p class="hint">Keys are stored encrypted on the server and never sent back to the browser; only the last 4 characters are shown. Queries run using your key and are billed to your API account.</p>
+          <div class="field" data-engine="openai">
+            <label for="key-openai">OpenAI API key</label>
+            <div class="btn-row">
+              <input id="key-openai" type="password" placeholder="sk-..." style="flex:1; min-width:200px;">
+              <button type="button" class="btn-secondary" data-test="openai">Test</button>
+              <button type="button" class="btn-secondary hidden" data-remove="openai">Remove</button>
+            </div>
+            <div class="hint" id="key-status-openai"></div>
+          </div>
+          <div class="field" data-engine="gemini">
+            <label for="key-gemini">Google Gemini API key</label>
+            <div class="btn-row">
+              <input id="key-gemini" type="password" placeholder="AIza..." style="flex:1; min-width:200px;">
+              <button type="button" class="btn-secondary" data-test="gemini">Test</button>
+              <button type="button" class="btn-secondary hidden" data-remove="gemini">Remove</button>
+            </div>
+            <div class="hint" id="key-status-gemini"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header small"><h3>Offered models</h3></div>
+        <div class="provider-section-body">
+          <div id="model-checks" class="offer-models">
+            <span class="hint">Test an API key first.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header small"><h3>Payout address</h3></div>
+        <div class="provider-section-body">
+          <p class="hint">Satoshis paid by customers are sent here when a channel closes. Changes apply to newly opened channels.</p>
+          <label class="payout-option">
+            <input type="radio" name="payout-mode" value="identity" checked>
+            <span><b>My identity key (02/03)</b><br><span class="hint">When a channel closes, payment is sent to this identity key and arrives in BSV Desktop's incoming payments inbox (MessageBox) automatically.</span></span>
+          </label>
+          <div class="field" id="payout-identity-field">
+            <label for="f-payout-identity">BSV Desktop identity key (02... or 03..., 66 characters)</label>
+            <input id="f-payout-identity" placeholder="02..." autocomplete="off" spellcheck="false" maxlength="66">
+            <div class="hint">Pre-filled with your signed-in wallet's key; enter another wallet's identity key to receive payouts there.</div>
+          </div>
+          <div class="hint" id="payout-current"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header small"><h3>Pricing (satoshis)</h3></div>
+        <div class="provider-section-body">
+          <div class="field-row">
+            <div class="field">
+              <label for="f-in">Per 1,000 input tokens</label>
+              <input id="f-in" type="number" min="0" step="1" value="100" required>
+            </div>
+            <div class="field">
+              <label for="f-out">Per 1,000 output tokens</label>
+              <input id="f-out" type="number" min="0" step="1" value="400" required>
+            </div>
+            <div class="field">
+              <label for="f-min">Minimum per query</label>
+              <input id="f-min" type="number" min="0" step="1" value="50" required>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="btn-row">
+        <button type="submit" id="btn-save" class="btn btn-primary" style="width:auto; padding:10px 20px;">
+          <span>Save and publish</span>
+        </button>
+      </div>
+      <div id="form-message" class="auth-message"></div>
+    </form>
+
+    <!-- Earnings -->
+    <section id="earnings-card" class="card section-gap hidden">
+      <div class="card-header small">
+        <h3>Earnings</h3>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span id="earnings-total" class="refresh-indicator"></span>
+          <button type="button" id="btn-refresh-earnings" class="btn-secondary" style="padding:2px 8px; font-size:11px;" title="Refresh earnings">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="provider-section-body">
+        <div id="earnings-list"></div>
+      </div>
+    </section>
+
+    <footer class="page-footer">
+      <div>
+        <strong>prompt<span class="brand-light">bazaar</span></strong>
+        <span class="footer-dot">·</span>
+        <span>The open AI marketplace, paid in real time on BSV</span>
+      </div>
+      <div>
+        <a href="https://bsvblockchain.org/" target="_blank" rel="noopener noreferrer">bsvblockchain.org ↗</a>
+        <span class="footer-dot">·</span>
+        <span>BRC-100</span>
+        <span class="footer-dot">·</span>
+        <span>sCrypt 2-of-2 UTXO</span>
+      </div>
+    </footer>
+  </main>
+
+  <script src="vendor/bsv-sdk.js"></script>
+  <script src="channelClient.js"></script>
+  <script src="session.js"></script>
+  <script src="providerEarnings.js"></script>
+  <script src="provider.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

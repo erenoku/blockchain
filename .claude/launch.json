@@ -1,0 +1,38 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gateway",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "src/gateway/server.js"
+      ],
+      "port": 3300
+    },
+    {
+      "name": "gateway-preview",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3301",
+        "DATA_DIR=/private/tmp/claude-501/-Users-osmankaan-Projects-blockchain/e28602e4-8da2-4107-ace0-5c151aae01ec/scratchpad/preview-data",
+        "node",
+        "src/gateway/server.js"
+      ],
+      "port": 3301
+    },
+    {
+      "name": "provider-preview",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PROVIDER_PORT=4097",
+        "GATEWAY_URL=http://localhost:3301",
+        "GEMINI_API_KEY=",
+        "PROVIDER_NAME=Preview Node",
+        "PROVIDER_IDENTITY_KEY=039b88c3b767d542c070d74f9b5795f6384b9f10f4eac9d42dbba1d7eecc9f221c",
+        "node",
+        "src/provider/agent.js"
+      ],
+      "port": 4097
+    }
+  ]
+}

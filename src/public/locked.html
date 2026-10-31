@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0f2c">
+  <title>Locked Channel Funds | PromptBazaar</title>
+  <link rel="icon" href="brand.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="experience.css">
+  <link rel="stylesheet" href="site.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="experience ledger-page">
+  <a class="skip-link" href="#ledger">Skip to content</a>
+
+  <header class="navbar">
+    <div class="nav-inner top-bar">
+      <a class="nav-brand" href="/" aria-label="PromptBazaar home">
+        <svg class="logo-icon" width="24" height="24" viewBox="0 0 36 36" aria-hidden="true">
+          <rect x="1.5" y="1.5" width="33" height="33" rx="8.5" fill="var(--logo-bg)" stroke="var(--logo-ring)" stroke-width="1.5"/>
+          <path d="M6.8 13.6C8.9 9.6 13.1 7.1 18 7.1s9.1 2.5 11.2 6.5l-2 .8C25.3 11.3 21.9 9.6 18 9.6s-7.3 1.7-9.2 4.8Z" fill="var(--logo-mark)"/><path d="M10 13.6h16v17H10Z" fill="var(--logo-mark)"/><path d="M13.2 30.6v-8.4c0-3.3 2.1-5.4 4.8-6.9 2.7 1.5 4.8 3.6 4.8 6.9v8.4Z" fill="var(--logo-bg)"/><path d="M13.8 22.6h8.4v1.1h-8.4ZM17.45 23.7h1.1v6.9h-1.1Z" fill="var(--saffron)"/><path d="M10 18.4h3v.8h-3ZM23 18.4h3v.8h-3ZM10 22.8h3v.8h-3ZM23 22.8h3v.8h-3ZM10 27h3v.8h-3ZM23 27h3v.8h-3Z" fill="var(--logo-bg)"/>
+        </svg>
+        <span class="brand-title">prompt<span class="brand-light">bazaar</span></span>
+      </a>
+
+      <div class="nav-user-actions">
+          <details class="palette-menu" id="accent-menu">
+          <summary aria-label="Choose accent color"><span class="accent-preview"></span><span>Accent</span></summary>
+          <div class="palette-popover">
+            <strong>Accent color</strong>
+            <p>Choose an interface accent.</p>
+            <div class="palette-options" role="group" aria-label="Accent presets">
+              <button type="button" class="color-swatch" data-accent="#2fb8bc" aria-label="Turquoise" aria-pressed="true" style="--swatch:#2fb8bc"></button>
+              <button type="button" class="color-swatch" data-accent="#3a9e88" aria-label="Jade" aria-pressed="false" style="--swatch:#3a9e88"></button>
+              <button type="button" class="color-swatch" data-accent="#3b4fc4" aria-label="Lapis" aria-pressed="false" style="--swatch:#3b4fc4"></button>
+              <button type="button" class="color-swatch" data-accent="#e5a823" aria-label="Saffron" aria-pressed="false" style="--swatch:#e5a823"></button>
+              <button type="button" class="color-swatch" data-accent="#d0503c" aria-label="Coral" aria-pressed="false" style="--swatch:#d0503c"></button>
+            </div>
+            <label class="custom-accent" for="custom-accent">Custom <span id="accent-value">#2FB8BC</span><input id="custom-accent" type="color" value="#2fb8bc" aria-label="Custom accent color"></label>
+          </div>
+        </details>
+        <div id="nav-user-cluster" class="nav-user-cluster"></div>
+      </div>
+    </div>
+
+    <div class="nav-subbar">
+      <div class="nav-subbar-inner">
+        <nav class="nav-segmented" id="primary-nav" aria-label="Primary navigation">
+          <a class="nav-tab" href="/">Ask AI</a>
+          <a class="nav-tab" href="/market.html">Marketplace</a>
+          <a class="nav-tab" href="/provider.html">Become a Provider</a>
+          <a class="nav-tab active" href="/locked.html">Locked Funds</a>
+        </nav>
+
+        <div class="nav-metrics">
+          <div class="nav-telemetry">
+            <span class="network-badge-item">
+              <span class="dot green"></span>
+              <span id="network-badge">BSV MAINNET</span>
+            </span>
+            <span class="stat-divider">·</span>
+            <span class="telemetry-item">
+              <span id="provider-count" class="value">0</span>
+              <span class="label">nodes</span>
+            </span>
+            <span class="stat-divider">·</span>
+            <span class="telemetry-item">
+              <span id="total-sats-count" class="value">0</span>
+              <span class="label">sats</span>
+            </span>
+            <span class="stat-divider">·</span>
+            <a class="telemetry-item locked-link" href="/locked.html" aria-label="View locked funds">
+              <span id="nav-locked-sats" class="value">0 sats</span>
+              <span class="label">locked</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="locked-page" id="ledger">
+    <div class="page-head">
+      <div>
+        <a class="back-link" href="/">← Back to Ask</a>
+        <h1>Locked Channel Funds</h1>
+        <p>Token channels opened through this gateway. Funds marked "Locked" are still held on-chain in the smart contract and are released when the channel settles or is refunded after expiry.</p>
+      </div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile gold">
+        <div class="t-label">Currently locked</div>
+        <div class="t-value" id="t-locked">–</div>
+        <div class="t-sub" id="t-locked-sub"></div>
+      </div>
+      <div class="tile">
+        <div class="t-label">Refund available</div>
+        <div class="t-value" id="t-refund">–</div>
+        <div class="t-sub" id="t-refund-sub"></div>
+      </div>
+      <div class="tile green">
+        <div class="t-label">Paid to providers</div>
+        <div class="t-value" id="t-paid">–</div>
+        <div class="t-sub">from settled channels</div>
+      </div>
+      <div class="tile">
+        <div class="t-label">Total channels</div>
+        <div class="t-value" id="t-total">–</div>
+        <div class="t-sub" id="t-total-sub"></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="filters" role="tablist" aria-label="Channel filter">
+        <button type="button" data-filter="locked" class="active">Locked</button>
+        <button type="button" data-filter="all">All</button>
+      </div>
+      <span class="updated" id="updated"></span>
+    </div>
+
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Channel balances table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Chain status</th>
+            <th scope="col">Channel</th>
+            <th scope="col">Provider</th>
+            <th scope="col" class="num">Deposit</th>
+            <th scope="col" class="num">Paid</th>
+            <th scope="col" class="num">Refundable</th>
+            <th scope="col">Refund unlocks</th>
+            <th scope="col">Transactions</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="8" class="muted">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note">
+      Chain status is fetched from WhatsOnChain: <b>Locked</b> = deposit is unspent in the contract, <b>Spent</b> = channel settled or refunded,
+      <b>Unknown</b> = explorer did not respond. Refunds are claimed from the browser that funded the deposit using the "Claim Refund" button so funds return directly to the owner's BSV Desktop wallet.
+    </p>
+
+    <footer class="page-footer">
+      <div>
+        <strong>prompt<span class="brand-light">bazaar</span></strong>
+        <span class="footer-dot">·</span>
+        <span>The open AI marketplace, paid in real time on BSV</span>
+      </div>
+      <div>
+        <a href="https://bsvblockchain.org/" target="_blank" rel="noopener noreferrer">bsvblockchain.org ↗</a>
+        <span class="footer-dot">·</span>
+        <span>BRC-100</span>
+        <span class="footer-dot">·</span>
+        <span>sCrypt 2-of-2 UTXO</span>
+      </div>
+    </footer>
+  </main>
+
+  <script src="session.js"></script>
+  <script src="locked.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

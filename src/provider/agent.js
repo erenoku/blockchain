@@ -1,0 +1,449 @@
+const path = require('path');
+const initialEnv = { ...process.env };
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+const express = require('express');
+const GeminiService = require('./gemini');
+const OpenAIService = require('./openai');
+const pricing = require('../pricing');
+const ChannelBook = require('./channelBook');
+const WhatsOnChainClient = require('../bsv/explorer');
+const { supportsModel, isOpenAIModel } = require('../modelRouting');
+const { runChannelQuery, settleChannel } = require('./channelOps');
+
+class ProviderAgent {
+  constructor(options = {}) {
+    this.name = options.name || process.env.PROVIDER_NAME || 'Gemini-Pro-Node-Alpha';
+    this.bsvAddress = options.bsvAddress || process.env.PROVIDER_BSV_ADDRESS || '';
+    this.pricing = pricing.normalizePricing({
+      inputPer1k: options.inputPer1k || process.env.PRICE_PER_1K_INPUT_SATS,
+      outputPer1k: options.outputPer1k || process.env.PRICE_PER_1K_OUTPUT_SATS,
+      minSats: options.minSats || process.env.MIN_PRICE_SATS,
+      maxOutputTokens: options.maxOutputTokens || process.env.MAX_OUTPUT_TOKENS_LIMIT
+    });
+    this.model = options.model || process.env.GEMINI_MODEL || 'gemini-1.5-pro';
+    this.geminiApiKey = options.apiKey ?? process.env.GEMINI_API_KEY ?? '';
+    this.openaiApiKey = options.openaiApiKey ?? process.env.OPENAI_API_KEY ?? '';
+    this.openaiModel = options.openaiModel || process.env.OPENAI_MODEL || 'gpt-4o';
+
+    if (Array.isArray(options.supportedModels)) {
+      this.supportedModels = options.supportedModels;
+    } else if (process.env.PROVIDER_MODELS || process.env.MODELS) {
+      const raw = process.env.PROVIDER_MODELS || process.env.MODELS;
+      this.supportedModels = raw.split(',').map(m => m.trim()).filter(Boolean);
+    } else {
+      const engine = (options.engine || process.env.ENGINE || process.env.PROVIDER_ENGINE || '').toLowerCase();
+      if (engine === 'gemini') {
+        this.supportedModels = [this.model];
+      } else if (engine === 'openai' || engine === 'chatgpt') {
+        const list = [this.openaiModel];
+        if (!list.includes('gpt-4o-mini')) list.push('gpt-4o-mini');
+        this.supportedModels = list;
+      } else {
+        // If caller passed a specific model on CLI or options, restrict to that engine
+        const cliGemini = !!(initialEnv.GEMINI_MODEL || options.model);
+        const cliOpenAI = !!(initialEnv.OPENAI_MODEL || options.openaiModel);
+
+        if (cliGemini && !cliOpenAI) {
+          this.supportedModels = [this.model];
+        } else if (cliOpenAI && !cliGemini) {
+          const list = [this.openaiModel];
+          if (!list.includes('gpt-4o-mini')) list.push('gpt-4o-mini');
+          this.supportedModels = list;
+        } else {
+          const name = (this.name || '').toLowerCase();
+          const isGeminiName = name.includes('gemini') && !name.includes('openai') && !name.includes('chatgpt');
+          const isOpenAIName = (name.includes('openai') || name.includes('chatgpt')) && !name.includes('gemini');
+
+          const models = [];
+          if (!isOpenAIName && this.model) models.push(this.model);
+          if (!isGeminiName && (this.openaiApiKey || options.openaiApiKey)) {
+            models.push(this.openaiModel);
+            if (!models.includes('gpt-4o-mini')) models.push('gpt-4o-mini');
+          }
+          this.supportedModels = models.length > 0 ? Array.from(new Set(models)) : [this.model];
+        }
+      }
+    }
+    this.gatewayUrl = options.gatewayUrl || process.env.GATEWAY_URL || 'http://localhost:3000';
+    this.port = parseInt(options.port || process.env.PROVIDER_PORT || '4001', 10);
+
+    // Earnings are only ever paid to an identity key (02/03): each channel pays a BRC-29 key
+    // derived from it and the identity's BSV Desktop is told via MessageBox. Plain addresses
+    // (1...) are never paid. PROVIDER_BSV_ADDRESS is accepted only if it holds an identity key.
+    const IDENTITY_KEY_RE = /^(02|03)[0-9a-f]{64}$/;
+    const candidates = [options.identityKey, process.env.PROVIDER_IDENTITY_KEY, this.bsvAddress]
+      .filter(v => typeof v === 'string' && v.trim())
+      .map(v => v.trim().toLowerCase());
+    this.identityKey = candidates.find(v => IDENTITY_KEY_RE.test(v)) || null;
+    for (const v of candidates) {
+      if (!IDENTITY_KEY_RE.test(v)) {
+        console.error(`[Provider] Ignoring payout value "${v.slice(0, 12)}..." (${v.length} chars): earnings are only paid to a 66-char identity key starting with 02/03.`);
+      }
+    }
+    // Kept for the registration payload only; nothing is ever paid to it
+    this.bsvAddress = null;
+    if (!this.identityKey) {
+      this.payoutDisabledReason = 'PROVIDER_IDENTITY_KEY (02... or 03..., 66 chars) is not set';
+      console.error(`[Provider] Payment channels disabled: ${this.payoutDisabledReason}.`);
+    }
+    // Sends the MessageBox payment notice; tests replace it
+    this.deliverPayment = options.deliverPayment || require('../gateway/peerPay').deliverPayment;
+
+    this.gemini = new GeminiService(this.geminiApiKey, this.model);
+    this.openai = new OpenAIService(this.openaiApiKey, this.openaiModel);
+    this.explorer = new WhatsOnChainClient();
+    this.channels = this.createChannelBook(options);
+    this.app = express();
+    this.app.use(express.json({ limit: '10mb' }));
+    // Stable across restarts, so customers' saved selections and open channels keep pointing here
+    this.id = `provider_${require('crypto').createHash('sha256').update(`${this.identityKey || this.name}|${this.port}`).digest('hex').slice(0, 12)}`;
+    this.server = null;
+    this.heartbeatTimer = null;
+  }
+
+  /**
+   * TokenChannel payment channels. Disabled if the contract isn't built or there is
+   * no identity key to pay earnings to.
+   */
+  createChannelBook(options) {
+    if (!this.identityKey) return null;
+    try {
+      // Key, proposals and channels survive restarts, so funded channels can still be opened/settled
+      const storePath = options.channelStorePath === undefined
+        ? path.join(__dirname, '../../data', `provider-channels-${this.port}.json`)
+        : options.channelStorePath;
+      return new ChannelBook({
+        channelWif: options.channelWif || process.env.PROVIDER_CHANNEL_WIF,
+        storePath,
+        payoutIdentityKey: this.identityKey,
+        pricing: this.pricing,
+        chunkTokens: parseInt(options.chunkTokens || process.env.CHANNEL_CHUNK_TOKENS || '128', 10),
+        verifyFunding: options.verifyFunding || ((params, utxo, lockingScriptHex) => this.verifyChannelFunding(utxo, lockingScriptHex))
+      });
+    } catch (err) {
+      console.warn(`[Provider] Payment channels disabled: ${err.message}`);
+      return null;
+    }
+  }
+
+  async verifyChannelFunding(utxo, lockingScriptHex) {
+    const tx = await this.explorer.getTransaction(utxo.txid);
+    const out = tx && tx.vout && tx.vout[utxo.vout];
+    if (!out || !out.scriptPubKey) return false;
+    return out.scriptPubKey.hex === lockingScriptHex && Math.round(out.value * 1e8) === utxo.satoshis;
+  }
+
+  selectEngine(requestedModel) {
+    const model = (requestedModel || this.model).trim().toLowerCase();
+    if (!supportsModel(this, model)) throw new Error(`Unsupported AI model: ${model}`);
+    const engine = isOpenAIModel(model) ? this.openai : this.gemini;
+    if (engine === this.openai && !engine.apiKey) {
+      throw new Error('OPENAI_API_KEY is not configured for ChatGPT.');
+    }
+    return { model, engine };
+  }
+
+  async settleChannel(channelId, opts = {}) {
+    const txid = await settleChannel({ channels: this.channels, explorer: this.explorer, channelId, closeSig: opts.closeSig });
+    if (txid) {
+      console.log(`[Provider] Channel ${channelId} settled on-chain: ${txid}`);
+      await this.deliverPayout(channelId);
+    }
+    return txid;
+  }
+
+  /** Tell the payout identity's BSV Desktop about a settled channel (MessageBox payment_inbox). */
+  async deliverPayout(channelId) {
+    let result;
+    try {
+      const notice = this.channels.payoutNotice(channelId);
+      if (!notice) return null;
+      result = await this.deliverPayment(notice);
+    } catch (err) {
+      result = { delivered: false, errors: [err.message] };
+    }
+    this.channels.markPayoutDelivery(channelId, result);
+    if (result.delivered) console.log(`[Provider] Payment notice for ${channelId} delivered to ${this.identityKey.slice(0, 12)}... (${result.host})`);
+    else console.warn(`[Provider] Payment notice for ${channelId} not delivered yet: ${(result.errors || []).join(' | ')}`);
+    return result;
+  }
+
+  setupChannelRoutes() {
+    const channelRoute = (handler) => async (req, res) => {
+      if (!this.channels) {
+        return res.status(503).json({ error: 'Payment channels are not enabled on this provider' });
+      }
+      try {
+        res.json({ success: true, ...(await handler(req)) });
+      } catch (err) {
+        res.status(400).json({ error: err.message });
+      }
+    };
+
+    this.app.post('/channel/proposal', channelRoute((req) => this.channels.proposal(req.body)));
+
+    this.app.post('/channel/:id/open', channelRoute((req) => this.channels.open(req.params.id, req.body)));
+
+    this.app.get('/channel/:id', channelRoute((req) => this.channels.summary(this.channels.get(req.params.id))));
+
+    this.app.post('/channel/:id/query', channelRoute(async (req) => {
+      const { prompt, maxOutputTokens, model: reqModel } = req.body;
+      if (!prompt || typeof prompt !== 'string') throw new Error('Prompt is required');
+      const { model, engine } = this.selectEngine(reqModel);
+      const { usage, ...result } = await runChannelQuery({
+        channels: this.channels, engine, model, providerPricing: this.pricing,
+        channelId: req.params.id, prompt, maxOutputTokens
+      });
+      console.log(`[Provider] Channel ${req.params.id}: generated answer via ${model}, releasing in paid chunks.`);
+      return result;
+    }));
+
+    this.app.post('/channel/:id/chunk', channelRoute((req) => this.channels.payChunk(req.params.id, req.body)));
+
+    this.app.post('/channel/:id/close', channelRoute(async (req) => {
+      const txid = await this.settleChannel(req.params.id, { closeSig: req.body.closeSig });
+      return { ...this.channels.summary(this.channels.get(req.params.id)), settleTxid: txid };
+    }));
+  }
+
+  async settleExpiringChannels() {
+    if (!this.channels) return;
+    for (const channel of this.channels.expiringSoon()) {
+      try {
+        await this.settleChannel(channel.id);
+      } catch (err) {
+        console.error(`[Provider] Auto-settle of channel ${channel.id} failed: ${err.message}`);
+      }
+    }
+    // Keep retrying payment notices that didn't get through
+    for (const channel of this.channels.undeliveredPayouts()) await this.deliverPayout(channel.id);
+  }
+
+  async detectBsvDesktopIdentityKey() {
+    // Only use explicit PROVIDER_IDENTITY_KEY from .env so we don't accidentally
+    // overwrite with the Buyer's own BSV Desktop Identity Key when running on the same laptop.
+    return this.identityKey;
+  }
+
+  setupRoutes() {
+    this.setupChannelRoutes();
+    this.app.get('/health', (req, res) => {
+      res.json({
+        status: 'online',
+        id: this.id,
+        name: this.name,
+        model: this.model,
+        supportedModels: this.supportedModels,
+        bsvAddress: this.bsvAddress,
+        identityKey: this.identityKey,
+        payoutIsDemo: !!this.payoutIsDemo,
+        pricing: this.pricing
+      });
+    });
+
+    // Quote route: count input tokens with the model's tokenizer and price the request
+    this.app.post('/quote', async (req, res) => {
+      const { prompt, maxOutputTokens, model: reqModel } = req.body;
+      if (!prompt || typeof prompt !== 'string') {
+        return res.status(400).json({ error: 'Prompt is required' });
+      }
+
+      let selected;
+      try {
+        selected = this.selectEngine(reqModel);
+      } catch (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      const countProvider = selected.engine;
+      const { inputTokens, source } = await countProvider.countTokens(prompt);
+      const cap = pricing.clampMaxOutputTokens(maxOutputTokens, this.pricing);
+      res.json({
+        success: true,
+        model: selected.model,
+        tokenCountSource: source,
+        pricing: this.pricing,
+        ...pricing.quote({ inputTokens, maxOutputTokens: cap, pricing: this.pricing })
+      });
+    });
+
+    // Execute route triggered by Gateway after payment verification
+    this.app.post('/execute', async (req, res) => {
+      const { invoiceId, prompt, txid, brc29Remittance, maxOutputTokens, model: reqModel } = req.body;
+
+      if (!prompt) {
+        return res.status(400).json({ error: 'Prompt is required' });
+      }
+
+      let selected;
+      try {
+        selected = this.selectEngine(reqModel);
+      } catch (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      const isChatGpt = isOpenAIModel(selected.model);
+
+      console.log(`[Provider] Received paid execution request:`);
+      console.log(`  - Invoice ID: ${invoiceId}`);
+      console.log(`  - TXID: ${txid}`);
+      console.log(`  - AI Engine: ${isChatGpt ? 'OpenAI ChatGPT' : 'Google Gemini'} (${reqModel || this.model})`);
+      console.log(`  - Prompt: "${prompt.slice(0, 60)}..."`);
+      const outputCap = pricing.clampMaxOutputTokens(maxOutputTokens, this.pricing);
+      console.log(`  - Max Output Tokens: ${outputCap}`);
+
+      // If BRC-29 remittance data is included, internalize payment into Provider's BSV Desktop wallet (if running on the recipient machine)
+      if (
+        brc29Remittance &&
+        Array.isArray(brc29Remittance.atomicBeef) &&
+        brc29Remittance.derivationPrefix &&
+        brc29Remittance.derivationSuffix &&
+        brc29Remittance.senderIdentityKey
+      ) {
+        try {
+          const idRes = await fetch('http://127.0.0.1:3321/getPublicKey', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Origin': 'http://localhost:3300'
+            },
+            body: JSON.stringify({ identityKey: true })
+          });
+          const idData = await idRes.json().catch(() => ({}));
+          const localIdKey = (idData.publicKey || '').toLowerCase();
+          const targetRecipientKey = (brc29Remittance.recipientIdentityKey || '').toLowerCase();
+
+          if (!targetRecipientKey || localIdKey === targetRecipientKey) {
+            const intRes = await fetch('http://127.0.0.1:3321/internalizeAction', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Origin': 'http://localhost:3300'
+              },
+              body: JSON.stringify({
+                tx: brc29Remittance.atomicBeef,
+                outputs: [
+                  {
+                    outputIndex: brc29Remittance.outputIndex || 0,
+                    protocol: 'wallet payment',
+                    paymentRemittance: {
+                      derivationPrefix: brc29Remittance.derivationPrefix,
+                      derivationSuffix: brc29Remittance.derivationSuffix,
+                      senderIdentityKey: brc29Remittance.senderIdentityKey
+                    }
+                  }
+                ],
+                description: `AI Query Payment (${this.model})`,
+                labels: ['brc29', 'ai-swap']
+              })
+            });
+            const intData = await intRes.json().catch(() => ({}));
+            if (intRes.ok) {
+              console.log(`[Provider] BSV Desktop internalized payment for invoice ${invoiceId}! Status:`, intData);
+            } else {
+              console.warn(`[Provider] BSV Desktop internalizeAction warning:`, intData);
+            }
+          } else {
+            console.log(`[Provider] Recipient (${targetRecipientKey.slice(0, 14)}...) is on a remote BSV Desktop. Delivered via MessageBox payment_inbox.`);
+          }
+        } catch (intErr) {
+          console.warn(`[Provider] Could not internalize into local BSV Desktop: ${intErr.message}`);
+        }
+      }
+
+      try {
+        const result = await selected.engine.generateAnswer(prompt, { maxOutputTokens: outputCap, model: selected.model });
+        const cost = pricing.actualCost({ usage: result.usage, pricing: this.pricing });
+        console.log(`[Provider] Successfully generated answer for invoice ${invoiceId} (${cost.inputTokens} in / ${cost.outputTokens} out tokens = ${cost.totalSats} sats)`);
+        res.json({
+          success: true,
+          providerId: this.id,
+          providerAddress: this.bsvAddress,
+          txid,
+          ...result,
+          maxOutputTokens: outputCap,
+          actualCost: cost
+        });
+      } catch (err) {
+        console.error('[Provider] Execution error:', err.message);
+        res.status(500).json({ error: `Inference execution failed: ${err.message}` });
+      }
+    });
+  }
+
+  async registerWithGateway() {
+    try {
+      await this.detectBsvDesktopIdentityKey();
+      const payload = {
+        id: this.id,
+        name: this.name,
+        model: this.model,
+        supportedModels: this.supportedModels,
+        bsvAddress: this.bsvAddress,
+        identityKey: this.identityKey,
+        payoutIsDemo: !!this.payoutIsDemo,
+        pricing: this.pricing,
+        endpoint: `http://localhost:${this.port}/execute`,
+        quoteEndpoint: `http://localhost:${this.port}/quote`,
+        channelPubKey: this.channels ? this.channels.publicKey : null,
+        channelEndpoint: this.channels ? `http://localhost:${this.port}/channel` : null
+      };
+
+      const res = await fetch(`${this.gatewayUrl}/api/providers/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        console.log(`[Provider] Registered successfully with Gateway at ${this.gatewayUrl}`);
+      } else {
+        const text = await res.text();
+        console.warn(`[Provider] Gateway registration warning: ${text}`);
+      }
+    } catch (err) {
+      console.warn(`[Provider] Could not connect to Gateway at ${this.gatewayUrl} (will retry): ${err.message}`);
+    }
+  }
+
+  async start() {
+    this.setupRoutes();
+    return new Promise((resolve) => {
+      this.server = this.app.listen(this.port, async () => {
+        console.log(`\n======================================================`);
+        console.log(`  BSV AI Provider Node is RUNNING`);
+        console.log(`  - Name: ${this.name}`);
+        console.log(`  - Models: ${this.supportedModels.join(', ')}`);
+        console.log(`  - Earnings paid to identity: ${this.identityKey || 'NONE (payment channels disabled)'}`);
+        console.log(`  - Pricing: ${this.pricing.inputPer1k} sats/1K input, ${this.pricing.outputPer1k} sats/1K output (min ${this.pricing.minSats} sats, max ${this.pricing.maxOutputTokens} output tokens)`);
+        console.log(`  - Listening on: http://localhost:${this.port}`);
+        console.log(`======================================================\n`);
+
+        await this.registerWithGateway();
+
+        // Heartbeat every 10 seconds
+        this.heartbeatTimer = setInterval(() => {
+          this.registerWithGateway();
+        }, 10000);
+
+        // Settle channels before their refund path opens
+        this.settleTimer = setInterval(() => this.settleExpiringChannels(), 60000);
+        if (this.settleTimer.unref) this.settleTimer.unref();
+
+        resolve(this);
+      });
+    });
+  }
+
+  stop() {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.settleTimer) clearInterval(this.settleTimer);
+    if (this.server) this.server.close();
+  }
+}
+
+// If executed directly
+if (require.main === module) {
+  const agent = new ProviderAgent();
+  agent.start();
+}
+
+module.exports = ProviderAgent;

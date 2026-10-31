@@ -1,0 +1,49 @@
+
+contract TokenChannel {
+  const PubKey providerKey;
+  const PubKey sessionKey;
+  const Ripemd160 providerAddr;
+  const Ripemd160 buyerAddr;
+  const int expiry;
+  const int closeFee;
+  bytes __scrypt_ts_ctx_hashoutputs;
+  int __scrypt_ts_ctx_locktime;
+  int __scrypt_ts_ctx_sequence;
+  int __scrypt_ts_ctx_value;
+  constructor(PubKey providerKey, PubKey sessionKey, Ripemd160 providerAddr, Ripemd160 buyerAddr, int expiry, int closeFee) {
+    this.providerKey = providerKey;
+    this.sessionKey = sessionKey;
+    this.providerAddr = providerAddr;
+    this.buyerAddr = buyerAddr;
+    this.expiry = expiry;
+    this.closeFee = closeFee;
+  }
+  public function settle(int providerAmount, Sig sessionSig, Sig providerSig, SigHashPreimage __scrypt_ts_txPreimage) {
+    require(Tx.checkPreimageSigHashType(__scrypt_ts_txPreimage, SigHashType(b'41')));
+    this.__scrypt_ts_ctx_hashoutputs = SigHash.hashOutputs(__scrypt_ts_txPreimage);
+    this.__scrypt_ts_ctx_locktime = SigHash.nLocktime(__scrypt_ts_txPreimage);
+    this.__scrypt_ts_ctx_sequence = SigHash.nSequence(__scrypt_ts_txPreimage);
+    this.__scrypt_ts_ctx_value = SigHash.value(__scrypt_ts_txPreimage);
+    require(providerAmount > 0);
+    int refund = this.__scrypt_ts_ctx_value - providerAmount - this.closeFee;
+    require(refund >= 0);
+    require(checkSig(sessionSig, this.sessionKey));
+    require(checkSig(providerSig, this.providerKey));
+    bytes outputs = Utils.buildOutput(Utils.buildPublicKeyHashScript(this.providerAddr), providerAmount);
+    if(refund > 0) {
+        outputs += Utils.buildOutput(Utils.buildPublicKeyHashScript(this.buyerAddr), refund);
+      }
+    require(this.__scrypt_ts_ctx_hashoutputs == hash256(outputs));
+  }
+  public function refund(SigHashPreimage __scrypt_ts_txPreimage) {
+    require(Tx.checkPreimageSigHashType(__scrypt_ts_txPreimage, SigHashType(b'41')));
+    this.__scrypt_ts_ctx_hashoutputs = SigHash.hashOutputs(__scrypt_ts_txPreimage);
+    this.__scrypt_ts_ctx_locktime = SigHash.nLocktime(__scrypt_ts_txPreimage);
+    this.__scrypt_ts_ctx_sequence = SigHash.nSequence(__scrypt_ts_txPreimage);
+    this.__scrypt_ts_ctx_value = SigHash.value(__scrypt_ts_txPreimage);
+    require(this.timeLock(this.expiry));
+    bytes outputs = Utils.buildOutput(Utils.buildPublicKeyHashScript(this.buyerAddr), this.__scrypt_ts_ctx_value - this.closeFee);
+    require(this.__scrypt_ts_ctx_hashoutputs == hash256(outputs));
+  }
+  function timeLock(int locktime): bool {  bool res = true;  res = this.__scrypt_ts_ctx_sequence < 0xffffffff;  if (    locktime < 500000000  ) {    res = res && this.__scrypt_ts_ctx_locktime < 500000000;  }  return res && this.__scrypt_ts_ctx_locktime >= locktime;}
+}

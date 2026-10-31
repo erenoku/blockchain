@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0f2c">
+  <title>PromptBazaar — Big ideas. Tiny payments.</title>
+  <link rel="icon" href="brand.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="experience.css">
+  <link rel="stylesheet" href="auth.css">
+  <link rel="stylesheet" href="site.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="experience auth-page">
+  <a class="skip-link" href="#step-signin">Skip to sign in</a>
+
+  <!-- Screen 1: Full-Viewport Splash Stage -->
+  <section id="welcome-splash" class="welcome-splash" aria-label="Welcome">
+    <div class="splash-center">
+      <div class="splash-badge">
+        <span class="splash-badge-dot" aria-hidden="true"></span>
+        <a href="https://bsvblockchain.org/" target="_blank" rel="noopener noreferrer" class="splash-badge-link">POWERED BY BSV ↗</a>
+      </div>
+
+      <h1 class="splash-title">
+        <span class="splash-title-top">Big ideas.</span>
+        <span class="splash-title-bottom">Tiny payments.</span>
+      </h1>
+
+      <p class="splash-lead">
+        Every AI model, one open bazaar. <span class="splash-lead-tint">Paid in real time.</span>
+      </p>
+      <p class="splash-sub">
+        Compare providers, pick a model, pay only for the words you read. No subscriptions. Fees in fractions of a cent.
+      </p>
+
+      <div class="splash-cta-group">
+        <button type="button" id="btn-get-started" class="splash-cta">
+          <span>Get started</span>
+          <svg class="splash-cta-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14"/>
+            <path d="m13 6 6 6-6 6"/>
+          </svg>
+        </button>
+        <p class="splash-caption">Your wallet is your way in.</p>
+      </div>
+
+      <ul class="splash-features" aria-label="Key capabilities">
+        <li>
+          <span>Open AI marketplace</span>
+        </li>
+        <li>
+          <span>·</span>
+          <span>Real-time BSV payments</span>
+        </li>
+        <li>
+          <span>·</span>
+          <span>Fees under a cent</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="splash-bottom-bar">
+      <span>Many providers. One bazaar. Paid as you read.</span>
+      <a href="#contract-spec" id="splash-terms-link">Terms &amp; conditions</a>
+    </div>
+  </section>
+
+  <!-- Screen 2: Main Start Workspace (slides into view when clicking Get started) -->
+  <div id="start-workspace" class="start-workspace">
+    <header class="navbar">
+      <div class="nav-inner">
+        <a class="nav-brand" href="#welcome-splash" aria-label="PromptBazaar home">
+          <svg class="logo-icon" width="22" height="22" viewBox="0 0 36 36" aria-hidden="true">
+            <rect x="1.5" y="1.5" width="33" height="33" rx="7" fill="var(--logo-bg)" stroke="var(--border)" stroke-width="1.5"/>
+            <path d="M6.8 13.6C8.9 9.6 13.1 7.1 18 7.1s9.1 2.5 11.2 6.5l-2 .8C25.3 11.3 21.9 9.6 18 9.6s-7.3 1.7-9.2 4.8Z" fill="var(--logo-mark)"/><path d="M10 13.6h16v17H10Z" fill="var(--logo-mark)"/><path d="M13.2 30.6v-8.4c0-3.3 2.1-5.4 4.8-6.9 2.7 1.5 4.8 3.6 4.8 6.9v8.4Z" fill="var(--logo-bg)"/><path d="M13.8 22.6h8.4v1.1h-8.4ZM17.45 23.7h1.1v6.9h-1.1Z" fill="var(--saffron)"/><path d="M10 18.4h3v.8h-3ZM23 18.4h3v.8h-3ZM10 22.8h3v.8h-3ZM23 22.8h3v.8h-3ZM10 27h3v.8h-3ZM23 27h3v.8h-3Z" fill="var(--logo-bg)"/>
+          </svg>
+          <span class="brand-title">prompt<span class="brand-light">bazaar</span></span>
+        </a>
+
+        <nav class="start-nav-links" aria-label="Protocol sections">
+          <a href="#how-it-works">Protocol</a>
+          <a href="#live-market">Bazaar</a>
+          <a href="#contract-spec">Specifications</a>
+        </nav>
+
+        <div class="nav-metrics">
+          <div class="metric-pill network-pill">
+            <span class="dot green"></span>
+            <span id="landing-network">BSV MAINNET</span>
+          </div>
+          <div class="metric-pill">
+            <span class="label">Providers:</span>
+            <span id="landing-providers" class="value">0</span>
+          </div>
+          <div class="metric-pill">
+            <span class="label">Swapped:</span>
+            <span id="landing-sats" class="value">0 sats</span>
+          </div>
+          <details class="palette-menu" id="accent-menu">
+            <summary aria-label="Choose accent color"><span class="accent-preview"></span><span>Accent</span></summary>
+            <div class="palette-popover">
+              <strong>Accent color</strong>
+              <p>Choose an interface accent.</p>
+              <div class="palette-options" role="group" aria-label="Accent presets">
+                <button type="button" class="color-swatch" data-accent="#2fb8bc" aria-label="Turquoise" aria-pressed="true" style="--swatch:#2fb8bc"></button>
+                <button type="button" class="color-swatch" data-accent="#3a9e88" aria-label="Jade" aria-pressed="false" style="--swatch:#3a9e88"></button>
+                <button type="button" class="color-swatch" data-accent="#3b4fc4" aria-label="Lapis" aria-pressed="false" style="--swatch:#3b4fc4"></button>
+                <button type="button" class="color-swatch" data-accent="#e5a823" aria-label="Saffron" aria-pressed="false" style="--swatch:#e5a823"></button>
+                <button type="button" class="color-swatch" data-accent="#d0503c" aria-label="Coral" aria-pressed="false" style="--swatch:#d0503c"></button>
+              </div>
+              <label class="custom-accent" for="custom-accent">Custom <span id="accent-value">#2FB8BC</span><input id="custom-accent" type="color" value="#2fb8bc" aria-label="Custom accent color"></label>
+            </div>
+          </details>
+        </div>
+      </div>
+    </header>
+
+    <main class="start-main">
+      <!-- Hero: Left technical specification + Right BSV Desktop session console -->
+      <div class="start-hero">
+        <div class="hero-pitch">
+          <div class="protocol-strip">
+            <span class="dot accent"></span>
+            <span>sCrypt 2-of-2 Payment Channels</span>
+            <span class="strip-sep">·</span>
+            <span>BRC-100 Identity</span>
+            <span class="strip-sep">·</span>
+            <span>BRC-29 Remittance</span>
+          </div>
+
+          <h2 class="hero-title">An open AI marketplace, paid word by word in real time.</h2>
+          <p class="hero-lead">
+            Independent providers offer OpenAI and Google Gemini models at their own prices, and you choose who serves you. Lock a few satoshis once in a <code>TokenChannel</code> contract, then pay for each chunk the moment it arrives. No subscriptions, no credit balances, no wallet popup per prompt, and BSV network fees measured in fractions of a cent.
+          </p>
+
+          <!-- Technical execution ledger (#how-it-works) -->
+          <section class="channel-schematic" id="how-it-works" aria-label="TokenChannel lifecycle">
+            <div class="schematic-header">
+              <span class="schematic-sig">contract TokenChannel(PubKey customer, PubKey provider, int refundLockTime)</span>
+              <span class="badge subtle">SIGHASH_ALL | FORKID</span>
+            </div>
+
+            <div class="schematic-steps">
+              <div class="schematic-step">
+                <div class="step-meta">
+                  <span class="step-num">01</span>
+                  <span class="step-tag">ON-CHAIN · 1 TX</span>
+                </div>
+                <div class="step-content">
+                  <h3>Lock 2-of-2 UTXO</h3>
+                  <p>Customer funds a 2-of-2 sCrypt contract output in BSV Desktop. An on-chain <code>nLockTime</code> branch guarantees a trustless refund if the provider goes offline.</p>
+                </div>
+              </div>
+
+              <div class="schematic-step">
+                <div class="step-meta">
+                  <span class="step-num">02</span>
+                  <span class="step-tag">OFF-CHAIN · SSE</span>
+                </div>
+                <div class="step-content">
+                  <h3>Stream &amp; Co-Sign Chunks</h3>
+                  <p>An ephemeral session key signs monotonically increasing <code>stateSats</code> commitments per streamed SSE chunk. Stop generation at any point and keep unstreamed funds.</p>
+                </div>
+              </div>
+
+              <div class="schematic-step">
+                <div class="step-meta">
+                  <span class="step-num">03</span>
+                  <span class="step-tag">BRC-29 · 0-CONF</span>
+                </div>
+                <div class="step-content">
+                  <h3>Cooperative Settlement</h3>
+                  <p>Closing the channel broadcasts the final co-signed spend: earned satoshis arrive in the provider's BSV Desktop inbox and unused deposit returns to your wallet.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="schematic-trace" aria-label="Sample off-chain state commitment">
+              <span><span class="trace-key">seq</span> #0004</span>
+              <span><span class="trace-key">deposit</span> 5,000 sats</span>
+              <span><span class="trace-key">stateSats</span> 184 sats → provider</span>
+              <span><span class="trace-key">refund</span> 4,816 sats → customer</span>
+            </div>
+          </section>
+        </div>
+
+        <!-- Right Column: Wallet Sign-In & Role Selection Console -->
+        <aside class="hero-console" aria-label="Wallet authentication">
+          <div class="console-shell">
+            <div class="console-topbar">
+              <span class="console-label">BRC-100 Wallet Session</span>
+              <span class="console-bridge"><span class="dot green" id="wallet-dot"></span><span id="wallet-status-label">localhost:3321</span></span>
+            </div>
+
+            <!-- Step 1: sign in -->
+            <section id="step-signin" class="auth-card">
+              <h2>Connect BSV Desktop</h2>
+              <div class="auth-role-switch" role="tablist" aria-label="Sign-in mode">
+                <button type="button" role="tab" aria-selected="true" class="role-tab active" data-signin-role="customer">Customer</button>
+                <button type="button" role="tab" aria-selected="false" class="role-tab" data-signin-role="provider">Provider</button>
+              </div>
+              <p class="card-desc" id="signin-role-desc">Connect your BSV Desktop identity to compare providers, open a 2-of-2 payment channel, and pay per streamed chunk.</p>
+
+              <button type="button" id="btn-signin" class="btn btn-primary auth-connect">
+                <span id="signin-btn-label">Sign in as Customer (BSV Desktop)</span>
+                <span class="btn-arrow" aria-hidden="true">→</span>
+              </button>
+              <div id="signin-message" class="auth-message" role="status" aria-live="polite"></div>
+
+              <dl class="session-specs">
+                <div>
+                  <dt>Auth Protocol</dt>
+                  <dd>BRC-100 challenge signature</dd>
+                </div>
+                <div>
+                  <dt>Custody Model</dt>
+                  <dd>2-of-2 UTXO + nLockTime refund</dd>
+                </div>
+                <div>
+                  <dt>Key Privacy</dt>
+                  <dd>Ephemeral per-channel session key</dd>
+                </div>
+                <div>
+                  <dt>Account Scope</dt>
+                  <dd>Customer &amp; Provider in one identity</dd>
+                </div>
+              </dl>
+            </section>
+
+            <!-- Step 2: choose a role -->
+            <section id="step-role" class="auth-card hidden">
+              <h2 class="role-title">How would you like to join the network?</h2>
+              <p class="card-desc role-desc">Your identity key is verified. Choose your starting workspace—you can use both roles and add the other one at any time.</p>
+              <div class="role-grid">
+                <button type="button" class="role-card" data-role="customer">
+                  <span class="role-tag">INFERENCE BUYER</span>
+                  <span class="role-name">Customer →</span>
+                  <span class="role-text">Compare providers and models, pick one, and pay only for the tokens you read.</span>
+                </button>
+                <button type="button" class="role-card" data-role="provider">
+                  <span class="role-tag">NODE OPERATOR</span>
+                  <span class="role-name">Provider →</span>
+                  <span class="role-text">Serve models with your OpenAI or Gemini API key and earn satoshis for every response.</span>
+                </button>
+              </div>
+              <div id="role-message" class="auth-message" role="status" aria-live="polite"></div>
+            </section>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Section 2: Live Marketplace Order Book Preview -->
+      <section class="start-section" id="live-market" aria-labelledby="market-preview-heading">
+        <div class="section-head">
+          <div>
+            <span class="section-eyebrow">THE BAZAAR</span>
+            <h2 id="market-preview-heading">Today's Providers &amp; Prices</h2>
+            <p>Every provider sets its own price, in satoshis per 1,000 tokens. Pick the one you like, or open your own stall with BSV Desktop.</p>
+          </div>
+          <button type="button" class="button button-secondary" data-trigger-signin>Connect wallet to start →</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Provider Node</th>
+                <th scope="col">Status</th>
+                <th scope="col">Supported Models</th>
+                <th scope="col" class="num">Input / 1k tok</th>
+                <th scope="col" class="num">Output / 1k tok</th>
+                <th scope="col" class="num">Min Query</th>
+              </tr>
+            </thead>
+            <tbody id="landing-market-rows">
+              <tr>
+                <td colspan="6" class="muted">Loading live marketplace book…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Section 3: Architectural Specification Matrix -->
+      <section class="start-section" id="contract-spec" aria-labelledby="arch-heading">
+        <div class="section-head">
+          <div>
+            <span class="section-eyebrow">SPECIFICATION MATRIX</span>
+            <h2 id="arch-heading">Settlement Architecture Comparison</h2>
+            <p>How 2-of-2 sCrypt payment channels compare against custodial subscriptions and single-transaction on-chain billing.</p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="spec-matrix">
+            <thead>
+              <tr>
+                <th scope="col">Dimension</th>
+                <th scope="col" class="highlight-col">PromptBazaar (TokenChannel)</th>
+                <th scope="col">Per-Prompt On-Chain Tx</th>
+                <th scope="col">Custodial Subscription</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="muted">Wallet Approvals</td>
+                <td class="highlight-col">1 approval opens channel; 0 popups per chunk</td>
+                <td>Manual approval popup on every prompt</td>
+                <td>Recurring monthly card charge</td>
+              </tr>
+              <tr>
+                <td class="muted">Metering Granularity</td>
+                <td class="highlight-col">Off-chain signature per streamed SSE chunk</td>
+                <td>Upfront invoice for max output token cap</td>
+                <td>Flat $20/mo quota or prepaid credit bucket</td>
+              </tr>
+              <tr>
+                <td class="muted">Early Stop / Partial Read</td>
+                <td class="highlight-col">Stop anytime; unspent satoshis refund on close</td>
+                <td>Unstreamed output budget is not refunded</td>
+                <td>Unused monthly balance expires</td>
+              </tr>
+              <tr>
+                <td class="muted">Custody &amp; Recovery</td>
+                <td class="highlight-col">Non-custodial 2-of-2 UTXO + nLockTime refund</td>
+                <td>Direct spend per query</td>
+                <td>Vendor holds prepaid USD balance</td>
+              </tr>
+              <tr>
+                <td class="muted">Provider Payout</td>
+                <td class="highlight-col">BRC-29 PeerPay to BSV Desktop payment_inbox</td>
+                <td>On-chain output per request</td>
+                <td>Closed single-vendor platform</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer class="page-footer">
+        <div>
+          <strong>prompt<span class="brand-light">bazaar</span></strong>
+          <span class="footer-dot">·</span>
+          <span>The open AI marketplace, paid in real time on BSV</span>
+        </div>
+        <div>
+          <a href="https://bsvblockchain.org/" target="_blank" rel="noopener noreferrer">bsvblockchain.org ↗</a>
+          <span class="footer-dot">·</span>
+          <span>BRC-100 Auth</span>
+          <span class="footer-dot">·</span>
+          <span>sCrypt 2-of-2 UTXO</span>
+          <span class="footer-dot">·</span>
+          <span>BRC-29 Remittance</span>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <script src="session.js"></script>
+  <script src="signin.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>

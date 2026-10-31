@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0f2c">
+  <title>PromptBazaar</title>
+  <link rel="icon" href="brand.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="experience.css">
+  <link rel="stylesheet" href="site.css">
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="experience playground-page">
+  <a class="skip-link" href="#request-workspace">Skip to content</a>
+
+  <header class="navbar">
+    <div class="nav-inner top-bar">
+      <a class="nav-brand" href="/" aria-label="PromptBazaar home">
+        <svg class="logo-icon" width="24" height="24" viewBox="0 0 36 36" aria-hidden="true">
+          <rect x="1.5" y="1.5" width="33" height="33" rx="8.5" fill="var(--logo-bg)" stroke="var(--logo-ring)" stroke-width="1.5"/>
+          <path d="M6.8 13.6C8.9 9.6 13.1 7.1 18 7.1s9.1 2.5 11.2 6.5l-2 .8C25.3 11.3 21.9 9.6 18 9.6s-7.3 1.7-9.2 4.8Z" fill="var(--logo-mark)"/><path d="M10 13.6h16v17H10Z" fill="var(--logo-mark)"/><path d="M13.2 30.6v-8.4c0-3.3 2.1-5.4 4.8-6.9 2.7 1.5 4.8 3.6 4.8 6.9v8.4Z" fill="var(--logo-bg)"/><path d="M13.8 22.6h8.4v1.1h-8.4ZM17.45 23.7h1.1v6.9h-1.1Z" fill="var(--saffron)"/><path d="M10 18.4h3v.8h-3ZM23 18.4h3v.8h-3ZM10 22.8h3v.8h-3ZM23 22.8h3v.8h-3ZM10 27h3v.8h-3ZM23 27h3v.8h-3Z" fill="var(--logo-bg)"/>
+        </svg>
+        <span class="brand-title">prompt<span class="brand-light">bazaar</span></span>
+      </a>
+
+      <div class="nav-user-actions">
+          <details class="palette-menu" id="accent-menu">
+          <summary aria-label="Choose accent color"><span class="accent-preview"></span><span>Accent</span></summary>
+          <div class="palette-popover">
+            <strong>Accent color</strong>
+            <p>Choose an interface accent.</p>
+            <div class="palette-options" role="group" aria-label="Accent presets">
+              <button type="button" class="color-swatch" data-accent="#2fb8bc" aria-label="Turquoise" aria-pressed="true" style="--swatch:#2fb8bc"></button>
+              <button type="button" class="color-swatch" data-accent="#3a9e88" aria-label="Jade" aria-pressed="false" style="--swatch:#3a9e88"></button>
+              <button type="button" class="color-swatch" data-accent="#3b4fc4" aria-label="Lapis" aria-pressed="false" style="--swatch:#3b4fc4"></button>
+              <button type="button" class="color-swatch" data-accent="#e5a823" aria-label="Saffron" aria-pressed="false" style="--swatch:#e5a823"></button>
+              <button type="button" class="color-swatch" data-accent="#d0503c" aria-label="Coral" aria-pressed="false" style="--swatch:#d0503c"></button>
+            </div>
+            <label class="custom-accent" for="custom-accent">Custom <span id="accent-value">#2FB8BC</span><input id="custom-accent" type="color" value="#2fb8bc" aria-label="Custom accent color"></label>
+          </div>
+        </details>
+        <div id="nav-user-cluster" class="nav-user-cluster"></div>
+      </div>
+    </div>
+
+    <div class="nav-subbar">
+      <div class="nav-subbar-inner">
+        <nav class="nav-segmented" id="primary-nav" aria-label="Primary navigation">
+          <a class="nav-tab active" href="/">Ask AI</a>
+          <a class="nav-tab" href="/market.html">Marketplace</a>
+          <a class="nav-tab" href="/provider.html">Become a Provider</a>
+          <a class="nav-tab" href="/locked.html">Locked Funds</a>
+        </nav>
+
+        <div class="nav-metrics">
+          <div class="nav-telemetry">
+            <span class="network-badge-item">
+              <span class="dot green"></span>
+              <span id="network-badge">BSV MAINNET</span>
+            </span>
+            <span class="stat-divider">·</span>
+            <span class="telemetry-item">
+              <span id="provider-count" class="value">0</span>
+              <span class="label">nodes</span>
+            </span>
+            <span class="stat-divider">·</span>
+            <span class="telemetry-item">
+              <span id="total-sats-count" class="value">0</span>
+              <span class="label">sats</span>
+            </span>
+            <span class="stat-divider">·</span>
+            <a class="telemetry-item locked-link" href="/locked.html" aria-label="View locked funds">
+              <span id="nav-locked-sats" class="value">0 sats</span>
+              <span class="label">locked</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" id="request-workspace">
+    <div class="grid-layout">
+      <!-- Left: Swap / AI Query Card -->
+      <div class="primary-column">
+        <section class="card swap-card">
+          <div class="card-header">
+            <div>
+              <h2>Ask AI</h2>
+              <p class="card-desc">Run queries on OpenAI and Google Gemini models via peer-to-peer BSV micropayments.</p>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <!-- Provider + model chosen in the marketplace -->
+            <div id="selected-provider" class="selected-provider">
+              <span id="selected-provider-text">No provider selected yet.</span>
+              <a href="/market.html" id="selected-provider-link">Go to Marketplace →</a>
+            </div>
+
+            <!-- Token Pair Selector -->
+            <div class="swap-tokens-wrapper">
+              <div class="token-row pay-row">
+                <div class="token-label">Estimated Max Cost</div>
+                <div class="price-line">
+                  <div class="token-amount" id="display-fee-sats">500 Sats</div>
+                </div>
+                <div class="payment-equivalent">
+                  <span>BSV (Satoshis)</span>
+                  <span class="token-amount usd-est" id="display-fee-usd">~$0.00025 USD</span>
+                </div>
+              </div>
+
+              <div class="swap-arrow-divider" aria-hidden="true">
+                <div class="arrow-circle">↓</div>
+              </div>
+
+              <div class="token-row receive-row">
+                <div class="token-label">Model</div>
+                <div class="token-select-box">
+                  <span class="crypto-icon" id="ai-icon"></span>
+                  <select id="model-select" class="model-dropdown" aria-label="Select AI model">
+                    <optgroup label="Google Gemini">
+                      <option value="gemini-1.5-pro" selected>Gemini 1.5 Pro</option>
+                      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                      <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                    </optgroup>
+                    <optgroup label="OpenAI (ChatGPT &amp; Reasoning)">
+                      <option value="gpt-4o">ChatGPT GPT-4o</option>
+                      <option value="gpt-4o-mini">ChatGPT GPT-4o Mini</option>
+                      <option value="o1">OpenAI o1</option>
+                      <option value="o3-mini">OpenAI o3-mini</option>
+                    </optgroup>
+                    <optgroup label="Anthropic Claude">
+                      <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                      <option value="claude-3-5-haiku">Claude 3.5 Haiku</option>
+                    </optgroup>
+                    <optgroup label="DeepSeek &amp; Open Weights">
+                      <option value="deepseek-r1">DeepSeek R1</option>
+                      <option value="llama-3.3-70b">Llama 3.3 70B</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div class="payment-equivalent">
+                  <span>Pay per streamed chunk</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prompt Input -->
+            <div class="input-group prompt-group">
+              <div class="field-heading">
+                <label for="prompt-input">Prompt</label>
+                <span><kbd>⌘</kbd> <kbd>↵</kbd> to send</span>
+              </div>
+              <textarea id="prompt-input" rows="4" placeholder="Enter your prompt...">Explain how BSV microtransactions enable pay-per-token AI inference without subscription lock-in.</textarea>
+            </div>
+
+            <!-- Token Budget (output cap paid up-front) -->
+            <div class="input-group estimate-panel">
+              <div class="request-settings">
+                <label for="max-output-select">Max Output Length (tokens)</label>
+                <select id="max-output-select">
+                  <option value="256">256 tokens (short)</option>
+                  <option value="512">512 tokens</option>
+                  <option value="1024" selected>1024 tokens (default)</option>
+                  <option value="2048">2048 tokens</option>
+                  <option value="4096">4096 tokens (long)</option>
+                </select>
+              </div>
+              <div id="quote-breakdown" class="quote-breakdown" aria-live="polite">Calculating price...</div>
+            </div>
+
+            <!-- TokenChannel: smart contract payment channel (pay per streamed chunk) -->
+            <div id="channel-panel" class="channel-panel">
+              <div class="channel-heading">
+                <div>
+                  <label class="field-label" for="channel-deposit">Token Channel (Smart Contract)</label>
+                  <div class="card-desc">Lock funds once and pay only for the tokens you receive. Unused balance is returned to your wallet when the channel closes.</div>
+                </div>
+              </div>
+
+              <div id="channel-closed-view" class="channel-deposit-row">
+                <div class="amount-input">
+                  <input type="number" id="channel-deposit" value="5000" min="100" step="100">
+                  <span>sats</span>
+                </div>
+                <button type="button" id="btn-channel-open" class="btn btn-primary channel-open-btn">
+                  Open Channel (1 approval in BSV Desktop)
+                </button>
+              </div>
+
+              <div id="channel-open-view" class="hidden">
+                <div id="channel-status" class="channel-status"></div>
+                <div class="channel-actions">
+                  <button type="button" id="btn-channel-ask" class="btn btn-primary">
+                    <span>Ask with Channel</span>
+                  </button>
+                  <button type="button" id="btn-channel-stop" class="button button-secondary hidden">Stop</button>
+                  <button type="button" id="btn-channel-close" class="button button-quiet">Close Channel &amp; Claim Refund</button>
+                </div>
+              </div>
+
+              <div id="channel-message" class="channel-message" role="status" aria-live="polite"></div>
+              <div id="channel-locked-list"></div>
+            </div>
+
+            <!-- Result / AI Answer Card -->
+            <div id="result-card" class="result-box hidden">
+              <div class="result-header">
+                <div class="result-title">
+                  <span id="result-icon"></span>
+                  <span id="result-model-label">AI Response</span>
+                </div>
+                <div class="tx-receipt-link">
+                  <span class="verified-icon">On-Chain Verified (0-Conf):</span>
+                  <a id="tx-explorer-link" href="#" target="_blank" rel="noopener">View on WhatsOnChain ↗</a>
+                </div>
+              </div>
+              <div id="ai-answer-content" class="ai-text markdown answer-scroll" tabindex="0" role="region" aria-label="Generated response"></div>
+              <div id="token-usage-summary" class="usage-summary"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Right: Network Providers & Live Transaction Stream -->
+      <aside class="sidebar" aria-label="Network status and recent transactions">
+        <!-- Active Providers Card -->
+        <div class="card sidebar-card">
+          <div class="card-header small">
+            <h3>Active Providers</h3>
+            <span class="live-dot-container"><span class="dot green"></span> Live</span>
+          </div>
+          <div id="providers-list" class="provider-nodes-list">
+            <div class="empty-state">Looking for active providers...</div>
+          </div>
+        </div>
+
+        <!-- Deposits locked in TokenChannel contracts (from the gateway's channel records) -->
+        <div class="card sidebar-card">
+          <div class="card-header small">
+            <h3>Locked in Contracts</h3>
+            <a href="/locked.html" class="refresh-indicator"><span id="gateway-locked-total">0 sats</span> · Details ↗</a>
+          </div>
+          <div id="gateway-locked-funds" class="swaps-list">
+            <div class="empty-state">No funds currently locked in contracts.</div>
+          </div>
+        </div>
+
+        <!-- Live On-Chain Swaps Ticker -->
+        <div class="card sidebar-card">
+          <div class="card-header small">
+            <h3>Recent Swaps</h3>
+            <span class="refresh-indicator">WhatsOnChain</span>
+          </div>
+          <div id="swaps-history" class="swaps-list">
+            <div class="empty-state">No swaps yet.</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="page-footer">
+      <div>
+        <strong>prompt<span class="brand-light">bazaar</span></strong>
+        <span class="footer-dot">·</span>
+        <span>The open AI marketplace, paid in real time on BSV</span>
+      </div>
+      <div>
+        <a href="https://bsvblockchain.org/" target="_blank" rel="noopener noreferrer">bsvblockchain.org ↗</a>
+        <span class="footer-dot">·</span>
+        <span>BRC-100</span>
+        <span class="footer-dot">·</span>
+        <span>sCrypt 2-of-2 UTXO</span>
+      </div>
+    </footer>
+  </main>
+
+  <script src="vendor/bsv-sdk.js"></script>
+  <script src="vendor/marked.js"></script>
+  <script src="vendor/purify.js"></script>
+  <script src="vendor/katex/katex.min.js"></script>
+  <script src="markdown.js"></script>
+  <script src="channelClient.js"></script>
+  <script src="session.js"></script>
+  <script src="app.js"></script>
+  <script src="channelUi.js"></script>
+  <script src="theme.js"></script>
+</body>
+</html>
