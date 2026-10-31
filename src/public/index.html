@@ -101,7 +101,7 @@
               <div class="token-row receive-row">
                 <div class="token-label">Model</div>
                 <div class="token-select-box">
-                  <span class="crypto-icon" id="ai-icon">✨</span>
+                  <span class="crypto-icon" id="ai-icon"></span>
                   <select id="model-select" class="model-dropdown" aria-label="Select AI model">
                     <optgroup label="OpenAI (ChatGPT)">
                       <option value="gpt-4o" selected>ChatGPT GPT-4o (OpenAI)</option>
@@ -125,6 +125,7 @@
             <div class="input-group prompt-group">
               <div class="field-heading">
                 <label for="prompt-input">Prompt</label>
+                <span><kbd>⌘</kbd> <kbd>↵</kbd> to send</span>
               </div>
               <textarea id="prompt-input" rows="4" placeholder="Enter your prompt...">Explain how BSV microtransactions enable pay-per-token AI inference without subscription lock-in.</textarea>
             </div>
@@ -182,7 +183,7 @@
             <div id="result-card" class="result-box hidden">
               <div class="result-header">
                 <div class="result-title">
-                  <span id="result-icon">✨</span>
+                  <span id="result-icon"></span>
                   <span id="result-model-label">AI Response</span>
                 </div>
                 <div class="tx-receipt-link">

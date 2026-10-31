@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#090710">
+  <meta name="theme-color" content="#09090b">
   <title>BSV AI Swap — Big ideas. Tiny payments.</title>
   <link rel="icon" href="brand.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
@@ -17,19 +17,8 @@
 <body class="experience auth-page">
   <a class="skip-link" href="#step-signin">Skip to sign in</a>
 
-  <!-- Screen 1: Full-Viewport Splash Hero -->
+  <!-- Screen 1: Full-Viewport Splash Stage -->
   <section id="welcome-splash" class="welcome-splash" aria-label="Welcome">
-    <!-- Subtle ambient 4-point diamond stars matching the design -->
-    <svg class="splash-star star-tl" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M8 1 L10.2 5.8 L15 8 L10.2 10.2 L8 15 L5.8 10.2 L1 8 L5.8 5.8 Z" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    </svg>
-    <svg class="splash-star star-tr" width="9" height="9" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M8 1 L10.2 5.8 L15 8 L10.2 10.2 L8 15 L5.8 10.2 L1 8 L5.8 5.8 Z" fill="none" stroke="currentColor" stroke-width="1.3"/>
-    </svg>
-    <svg class="splash-star star-mr" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M8 1 L10.2 5.8 L15 8 L10.2 10.2 L8 15 L5.8 10.2 L1 8 L5.8 5.8 Z" fill="none" stroke="currentColor" stroke-width="1.15"/>
-    </svg>
-
     <div class="splash-center">
       <div class="splash-badge">
         <span class="splash-badge-dot" aria-hidden="true"></span>
@@ -51,7 +40,7 @@
       <div class="splash-cta-group">
         <button type="button" id="btn-get-started" class="splash-cta">
           <span>Get started</span>
-          <svg class="splash-cta-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="splash-cta-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M5 12h14"/>
             <path d="m13 6 6 6-6 6"/>
           </svg>
@@ -61,22 +50,14 @@
 
       <ul class="splash-features" aria-label="Key capabilities">
         <li>
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
-            <path d="M8 1.5 L9.8 6.2 L14.5 8 L9.8 9.8 L8 14.5 L6.2 9.8 L1.5 8 L6.2 6.2 Z"/>
-          </svg>
           <span>Multiple AI models</span>
         </li>
         <li>
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
-            <path d="M9 1.5 3.5 9h4.2L6.8 14.5 12.5 7H8.3L9 1.5Z" stroke-linejoin="round"/>
-          </svg>
+          <span>·</span>
           <span>Instant BSV payments</span>
         </li>
         <li>
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
-            <path d="M8 1.5 2.5 3.8v4.1c0 3.4 2.3 5.7 5.5 6.6 3.2-.9 5.5-3.2 5.5-6.6V3.8L8 1.5Z" stroke-linejoin="round"/>
-            <path d="m5.7 8.1 1.6 1.6 3.1-3.2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <span>·</span>
           <span>Your wallet. Your control.</span>
         </li>
       </ul>
@@ -93,17 +74,17 @@
     <header class="navbar">
       <div class="nav-inner">
         <a class="nav-brand" href="#welcome-splash" aria-label="BSV AI Swap home">
-          <svg class="logo-icon" width="28" height="28" viewBox="0 0 36 36" aria-hidden="true">
-            <rect x="1.5" y="1.5" width="33" height="33" rx="8.5" fill="#13101c" stroke="var(--accent-strong)" stroke-opacity=".55" stroke-width="1.5"/>
-            <path d="M19.5 7.5 10.5 19.5h7l-1 9 9-12h-7l1-9Z" fill="var(--accent-strong)" stroke="var(--accent)" stroke-width="1" stroke-linejoin="round"/>
+          <svg class="logo-icon" width="22" height="22" viewBox="0 0 36 36" aria-hidden="true">
+            <rect x="1.5" y="1.5" width="33" height="33" rx="7" fill="#121215" stroke="var(--border)" stroke-width="1.5"/>
+            <path d="M19.5 7.5 10.5 19.5h7l-1 9 9-12h-7l1-9Z" fill="var(--accent-strong)"/>
           </svg>
           <span class="brand-title">bsv<span class="brand-light">ai</span><span class="brand-divider">/</span><span class="brand-product">swap</span></span>
         </a>
 
         <nav class="start-nav-links" aria-label="Protocol sections">
-          <a href="#how-it-works">How It Works</a>
-          <a href="#live-market">Live Market</a>
-          <a href="#contract-spec">Architecture</a>
+          <a href="#how-it-works">Protocol</a>
+          <a href="#live-market">Order Book</a>
+          <a href="#contract-spec">Specifications</a>
         </nav>
 
         <div class="nav-metrics">
@@ -139,7 +120,7 @@
     </header>
 
     <main class="start-main">
-      <!-- Hero: Left technical pitch + Right BSV Desktop session console -->
+      <!-- Hero: Left technical specification + Right BSV Desktop session console -->
       <div class="start-hero">
         <div class="hero-pitch">
           <div class="protocol-strip">
@@ -153,10 +134,10 @@
 
           <h2 class="hero-title">Pay-per-chunk AI inference over Bitcoin SV payment channels.</h2>
           <p class="hero-lead">
-            Query OpenAI and Google Gemini models through independent providers without monthly subscriptions, custodial credit balances, or per-prompt wallet popups. Lock satoshis once into an on-chain <code>TokenChannel</code> contract and settle off-chain for each streamed chunk you read.
+            Query OpenAI and Google Gemini models through independent node operators without monthly subscriptions, custodial credit balances, or per-prompt wallet popups. Lock satoshis once into an on-chain <code>TokenChannel</code> contract and settle off-chain for each streamed chunk you read.
           </p>
 
-          <!-- Technical pipeline diagram (#how-it-works) -->
+          <!-- Technical execution ledger (#how-it-works) -->
           <section class="channel-schematic" id="how-it-works" aria-label="TokenChannel lifecycle">
             <div class="schematic-header">
               <span class="schematic-sig">contract TokenChannel(PubKey customer, PubKey provider, int refundLockTime)</span>
@@ -167,28 +148,34 @@
               <div class="schematic-step">
                 <div class="step-meta">
                   <span class="step-num">01</span>
-                  <span class="step-tag">On-Chain · 1 Approval</span>
+                  <span class="step-tag">ON-CHAIN · 1 TX</span>
                 </div>
-                <h3>Lock 2-of-2 UTXO</h3>
-                <p>Customer funds a 2-of-2 sCrypt contract output in BSV Desktop. An on-chain <code>nLockTime</code> branch guarantees a trustless refund if the provider goes offline.</p>
+                <div class="step-content">
+                  <h3>Lock 2-of-2 UTXO</h3>
+                  <p>Customer funds a 2-of-2 sCrypt contract output in BSV Desktop. An on-chain <code>nLockTime</code> branch guarantees a trustless refund if the provider goes offline.</p>
+                </div>
               </div>
 
               <div class="schematic-step">
                 <div class="step-meta">
                   <span class="step-num">02</span>
-                  <span class="step-tag">Off-Chain · 0 Popups</span>
+                  <span class="step-tag">OFF-CHAIN · SSE</span>
                 </div>
-                <h3>Stream &amp; Co-Sign Chunks</h3>
-                <p>An ephemeral session key signs monotonically increasing <code>stateSats</code> commitments per streamed SSE chunk. Stop generation at any point and keep unstreamed funds.</p>
+                <div class="step-content">
+                  <h3>Stream &amp; Co-Sign Chunks</h3>
+                  <p>An ephemeral session key signs monotonically increasing <code>stateSats</code> commitments per streamed SSE chunk. Stop generation at any point and keep unstreamed funds.</p>
+                </div>
               </div>
 
               <div class="schematic-step">
                 <div class="step-meta">
                   <span class="step-num">03</span>
-                  <span class="step-tag">BRC-29 · 0-Conf</span>
+                  <span class="step-tag">BRC-29 · 0-CONF</span>
                 </div>
-                <h3>Cooperative Settlement</h3>
-                <p>Closing the channel broadcasts the final co-signed spend: earned satoshis arrive in the provider's BSV Desktop inbox and unused deposit returns to your wallet.</p>
+                <div class="step-content">
+                  <h3>Cooperative Settlement</h3>
+                  <p>Closing the channel broadcasts the final co-signed spend: earned satoshis arrive in the provider's BSV Desktop inbox and unused deposit returns to your wallet.</p>
+                </div>
               </div>
             </div>
 
@@ -246,12 +233,12 @@
               <p class="card-desc role-desc">Your identity key is verified. Choose your starting workspace—you can use both roles and add the other one at any time.</p>
               <div class="role-grid">
                 <button type="button" class="role-card" data-role="customer">
-                  <span class="role-tag">Inference Buyer</span>
+                  <span class="role-tag">INFERENCE BUYER</span>
                   <span class="role-name">Customer →</span>
                   <span class="role-text">Compare providers and models, pick one, and pay only for the tokens you read.</span>
                 </button>
                 <button type="button" class="role-card" data-role="provider">
-                  <span class="role-tag">Node Operator</span>
+                  <span class="role-tag">NODE OPERATOR</span>
                   <span class="role-name">Provider →</span>
                   <span class="role-text">Serve models with your OpenAI or Gemini API key and earn satoshis for every response.</span>
                 </button>
@@ -266,7 +253,7 @@
       <section class="start-section" id="live-market" aria-labelledby="market-preview-heading">
         <div class="section-head">
           <div>
-            <span class="section-eyebrow">Real-Time Order Book</span>
+            <span class="section-eyebrow">ORDER BOOK</span>
             <h2 id="market-preview-heading">Active Providers &amp; Token Rates</h2>
             <p>Prices are denominated in satoshis per 1,000 tokens. Connect BSV Desktop to open a channel with any provider or list your own node.</p>
           </div>
@@ -295,55 +282,59 @@
         </div>
       </section>
 
-      <!-- Section 3: Architectural Comparison -->
+      <!-- Section 3: Architectural Specification Matrix -->
       <section class="start-section" id="contract-spec" aria-labelledby="arch-heading">
         <div class="section-head">
           <div>
-            <span class="section-eyebrow">Settlement Design</span>
-            <h2 id="arch-heading">Why 2-of-2 Payment Channels Outperform Subscriptions &amp; Per-Prompt Transactions</h2>
-            <p>Traditional AI billing forces a trade-off between custodial recurring fees and per-request wallet friction. <code>TokenChannel</code> eliminates both.</p>
+            <span class="section-eyebrow">SPECIFICATION MATRIX</span>
+            <h2 id="arch-heading">Settlement Architecture Comparison</h2>
+            <p>How 2-of-2 sCrypt payment channels compare against custodial subscriptions and single-transaction on-chain billing.</p>
           </div>
         </div>
 
-        <div class="arch-grid">
-          <article class="arch-card">
-            <div class="arch-card-head">
-              <span class="badge">Legacy</span>
-              <h3>Monthly Subscriptions &amp; Custodial Credits</h3>
-            </div>
-            <ul class="arch-list">
-              <li><span>Commitment</span><strong>$20/mo flat fee or prepaid USD balance</strong></li>
-              <li><span>Custody</span><strong>Vendor holds funds; unused quota expires</strong></li>
-              <li><span>Provider Choice</span><strong>Locked to a single model vendor</strong></li>
-              <li><span>Metering</span><strong>Opaque rate limits &amp; credit buckets</strong></li>
-            </ul>
-          </article>
-
-          <article class="arch-card">
-            <div class="arch-card-head">
-              <span class="badge">Naive On-Chain</span>
-              <h3>Single Transaction Per Prompt</h3>
-            </div>
-            <ul class="arch-list">
-              <li><span>Wallet Friction</span><strong>Manual approval popup on every prompt</strong></li>
-              <li><span>Overpayment</span><strong>Must prepay maximum output token cap</strong></li>
-              <li><span>Early Stop</span><strong>Unstreamed token budget is not refunded</strong></li>
-              <li><span>Throughput</span><strong>One on-chain broadcast per question</strong></li>
-            </ul>
-          </article>
-
-          <article class="arch-card featured">
-            <div class="arch-card-head">
-              <span class="badge subtle">BSV AI Swap</span>
-              <h3>sCrypt <code>TokenChannel</code> Micro-States</h3>
-            </div>
-            <ul class="arch-list">
-              <li><span>Wallet Friction</span><strong>1 approval opens session; 0 popups per chunk</strong></li>
-              <li><span>Precision Billing</span><strong>Signed off-chain state per streamed chunk</strong></li>
-              <li><span>Early Stop</span><strong>Stop anytime; unspent sats refund on close</strong></li>
-              <li><span>Payout Delivery</span><strong>Direct BRC-29 PeerPay to BSV Desktop inbox</strong></li>
-            </ul>
-          </article>
+        <div class="table-wrap">
+          <table class="spec-matrix">
+            <thead>
+              <tr>
+                <th scope="col">Dimension</th>
+                <th scope="col" class="highlight-col">BSV AI Swap (TokenChannel)</th>
+                <th scope="col">Per-Prompt On-Chain Tx</th>
+                <th scope="col">Custodial Subscription</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="muted">Wallet Approvals</td>
+                <td class="highlight-col">1 approval opens channel; 0 popups per chunk</td>
+                <td>Manual approval popup on every prompt</td>
+                <td>Recurring monthly card charge</td>
+              </tr>
+              <tr>
+                <td class="muted">Metering Granularity</td>
+                <td class="highlight-col">Off-chain signature per streamed SSE chunk</td>
+                <td>Upfront invoice for max output token cap</td>
+                <td>Flat $20/mo quota or prepaid credit bucket</td>
+              </tr>
+              <tr>
+                <td class="muted">Early Stop / Partial Read</td>
+                <td class="highlight-col">Stop anytime; unspent satoshis refund on close</td>
+                <td>Unstreamed output budget is not refunded</td>
+                <td>Unused monthly balance expires</td>
+              </tr>
+              <tr>
+                <td class="muted">Custody &amp; Recovery</td>
+                <td class="highlight-col">Non-custodial 2-of-2 UTXO + nLockTime refund</td>
+                <td>Direct spend per query</td>
+                <td>Vendor holds prepaid USD balance</td>
+              </tr>
+              <tr>
+                <td class="muted">Provider Payout</td>
+                <td class="highlight-col">BRC-29 PeerPay to BSV Desktop payment_inbox</td>
+                <td>On-chain output per request</td>
+                <td>Closed single-vendor platform</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

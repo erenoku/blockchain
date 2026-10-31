@@ -326,7 +326,7 @@
       maxOutputTokens: getMaxOutputTokens()
     });
     el('result-model-label').textContent = `AI Response (${q.model})`;
-    el('result-icon').textContent = /^(gpt-|chatgpt-|o\d)/i.test(q.model) ? '🤖' : '✨';
+    el('result-icon').textContent = '';
 
     // Never trust the provider's numbers blindly: cap the query at the advertised price
     const promptEstimate = Math.ceil(prompt.length / 4);

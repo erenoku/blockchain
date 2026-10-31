@@ -132,12 +132,24 @@ function scheduleQuote() {
 }
 
 document.getElementById('prompt-input').addEventListener('input', scheduleQuote);
+document.getElementById('prompt-input').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    const askBtn = document.getElementById('btn-channel-ask');
+    const openView = document.getElementById('channel-open-view');
+    if (openView && !openView.classList.contains('hidden') && askBtn && !askBtn.disabled) {
+      askBtn.click();
+    } else {
+      const openBtn = document.getElementById('btn-channel-open');
+      if (openBtn && !openBtn.disabled) openBtn.click();
+    }
+  }
+});
 document.getElementById('max-output-select').addEventListener('change', updateQuote);
 const modelSelect = document.getElementById('model-select');
 modelSelect.addEventListener('change', () => {
-  const isGpt = modelSelect.value.toLowerCase().includes('gpt');
   const iconEl = document.getElementById('ai-icon');
-  if (iconEl) iconEl.textContent = isGpt ? '🤖' : '✨';
+  if (iconEl) iconEl.textContent = '';
   updateQuote();
 });
 
