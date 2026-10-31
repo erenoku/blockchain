@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const pricing = require('../pricing');
+const config = require('../config');
 
 let channelLib = null;
 function lib() {
@@ -44,9 +45,11 @@ class ChannelBook {
    * @param {number} [opts.chunkTokens] - output tokens released per paid chunk
    * @param {Function} [opts.verifyFunding] - async (params, utxo, lockingScriptHex) => boolean
    */
-  constructor({ channelWif, storePath, payoutAddress, pricing: providerPricing, chunkTokens = 128, verifyFunding }) {
+  constructor({ channelWif, storePath, persistKey = true, payoutAddress, pricing: providerPricing, chunkTokens = 128, verifyFunding }) {
     const { bsv } = lib();
     this.storePath = storePath || null;
+    // Hosted providers keep their key encrypted in the database, not in this file
+    this.persistKey = persistKey;
     const stored = this.readStore();
 
     this.privateKey = bsv.PrivateKey.fromWIF(channelWif || stored.channelWif || new bsv.PrivateKey().toWIF());
@@ -70,7 +73,7 @@ class ChannelBook {
     if (!this.storePath) return;
     const channels = Array.from(this.channels.entries()).map(([id, c]) => [id, { ...c, activeQuery: null }]);
     const data = JSON.stringify({
-      channelWif: this.privateKey.toWIF(),
+      channelWif: this.persistKey ? this.privateKey.toWIF() : undefined,
       proposals: Array.from(this.proposals.entries()),
       channels
     }, null, 2);
@@ -93,7 +96,8 @@ class ChannelBook {
       buyerAddress,
       expiry: Math.floor(Date.now() / 1000) + ttl
     };
-    const params = { ...base, closeFee: lib().estimateCloseFee(base, 1) };
+    // The close fee is fixed in the contract for the channel's lifetime, so it must meet miner policy
+    const params = { ...base, closeFee: lib().estimateCloseFee(base, config.CHANNEL_FEE_SATS_PER_KB) };
     const channelId = `ch_${crypto.randomBytes(8).toString('hex')}`;
     const lockingScriptHex = lib().channelLockingScript(params);
     this.proposals.set(channelId, { params, lockingScriptHex });

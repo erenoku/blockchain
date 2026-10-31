@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Giriş | BSV AI Swap</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="brand-title">BSV AI SWAP</span>
+        <span class="brand-subtitle">Token başına ödemeli yapay zeka ağı</span>
+      </div>
+    </div>
+    <div class="nav-metrics"></div>
+  </header>
+
+  <main class="auth-page">
+    <!-- Step 1: sign in -->
+    <section id="step-signin" class="card auth-card">
+      <h1>Giriş yap</h1>
+      <p class="card-desc">Hesabınız BSV Desktop kimlik anahtarınızdır. Şifre yok: BSV Desktop kısa bir giriş mesajını imzalar, siz de onaylarsınız.</p>
+      <button type="button" id="btn-signin" class="btn btn-primary"><span>🔐 BSV Desktop ile giriş yap</span></button>
+      <div id="signin-message" class="auth-message"></div>
+    </section>
+
+    <!-- Step 2: choose a role -->
+    <section id="step-role" class="hidden">
+      <h1 class="role-title">Ağa nasıl katılmak istersiniz?</h1>
+      <p class="card-desc role-desc">İkisini birden de seçebilirsiniz; rolünüzü daha sonra da ekleyebilirsiniz.</p>
+      <div class="role-grid">
+        <button type="button" class="card role-card" data-role="customer">
+          <span class="role-icon">💬</span>
+          <span class="role-name">Customer</span>
+          <span class="role-text">Provider'ları ve modelleri karşılaştırın, seçin ve sadece okuduğunuz token kadar ödeyin.</span>
+        </button>
+        <button type="button" class="card role-card" data-role="provider">
+          <span class="role-icon">🖥️</span>
+          <span class="role-name">Provider</span>
+          <span class="role-text">OpenAI veya Gemini API anahtarınızla model sunun; her cevap için satoshi kazanın.</span>
+        </button>
+      </div>
+      <div id="role-message" class="auth-message"></div>
+    </section>
+  </main>
+
+  <script src="session.js"></script>
+  <script src="signin.js"></script>
+</body>
+</html>

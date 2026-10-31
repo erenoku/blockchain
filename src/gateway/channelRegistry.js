@@ -1,5 +1,5 @@
 /**
- * Gateway-side record of every TokenChannel it brokered, persisted to disk so
+ * Gateway-side record of every TokenChannel it brokered, stored in SQLite so
  * locked deposits stay visible (and routable to their provider) after restarts.
  *
  * The gateway never holds funds or signatures; this is bookkeeping only. The
@@ -7,41 +7,65 @@
  * the explorer's spent-output lookup.
  */
 const fs = require('fs');
-const path = require('path');
 
 const ONCHAIN_CACHE_MS = 30 * 1000;
 const STALE_PROPOSAL_MS = 60 * 60 * 1000;
 
 class ChannelRegistry {
-  constructor(storePath) {
-    this.storePath = storePath;
-    this.channels = new Map();
+  /**
+   * @param {DatabaseSync} db
+   * @param {string} [legacyJsonPath] - pre-database JSON store, imported once if present
+   */
+  constructor(db, legacyJsonPath) {
+    this.db = db;
     this.onchainCache = new Map();
-    if (storePath && fs.existsSync(storePath)) {
-      for (const c of JSON.parse(fs.readFileSync(storePath, 'utf8'))) this.channels.set(c.channelId, c);
-    }
+    if (legacyJsonPath) this.importLegacy(legacyJsonPath);
   }
 
-  persist() {
-    if (!this.storePath) return;
-    fs.mkdirSync(path.dirname(this.storePath), { recursive: true });
-    const tmp = `${this.storePath}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(Array.from(this.channels.values()), null, 2));
-    fs.renameSync(tmp, this.storePath);
+  importLegacy(jsonPath) {
+    if (!fs.existsSync(jsonPath)) return;
+    const insert = this.db.prepare(
+      'INSERT OR IGNORE INTO channels (channel_id, customer_key, provider_id, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    for (const c of JSON.parse(fs.readFileSync(jsonPath, 'utf8'))) {
+      insert.run(c.channelId, c.customerKey || null, c.providerId || null, JSON.stringify(c), c.createdAt || Date.now(), c.updatedAt || Date.now());
+    }
+    fs.renameSync(jsonPath, `${jsonPath}.imported`);
+    console.log(`[Channels] Imported legacy channel records from ${jsonPath}`);
   }
 
   get(channelId) {
-    return this.channels.get(channelId) || null;
+    const row = this.db.prepare('SELECT data FROM channels WHERE channel_id = ?').get(channelId);
+    return row ? JSON.parse(row.data) : null;
   }
 
   /** Create or merge a channel record. */
   upsert(channelId, fields) {
     const now = Date.now();
-    const existing = this.channels.get(channelId) || { channelId, status: 'PROPOSED', paidSats: 0, createdAt: now };
+    const existing = this.get(channelId) || { channelId, status: 'PROPOSED', paidSats: 0, createdAt: now };
     const updated = { ...existing, ...fields, channelId, updatedAt: now };
-    this.channels.set(channelId, updated);
-    this.persist();
+    this.db.prepare(`
+      INSERT INTO channels (channel_id, customer_key, provider_id, data, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(channel_id) DO UPDATE SET
+        customer_key = excluded.customer_key, provider_id = excluded.provider_id,
+        data = excluded.data, updated_at = excluded.updated_at
+    `).run(channelId, updated.customerKey || null, updated.providerId || null, JSON.stringify(updated), updated.createdAt, now);
     return updated;
+  }
+
+  list({ customerKey, providerId } = {}) {
+    let rows;
+    if (customerKey && providerId) {
+      rows = this.db.prepare('SELECT data FROM channels WHERE customer_key = ? OR provider_id = ?').all(customerKey, providerId);
+    } else if (customerKey) {
+      rows = this.db.prepare('SELECT data FROM channels WHERE customer_key = ?').all(customerKey);
+    } else if (providerId) {
+      rows = this.db.prepare('SELECT data FROM channels WHERE provider_id = ?').all(providerId);
+    } else {
+      rows = this.db.prepare('SELECT data FROM channels').all();
+    }
+    return rows.map(r => JSON.parse(r.data));
   }
 
   /**
@@ -62,24 +86,23 @@ class ChannelRegistry {
       value = { state: 'unknown', error: err.message };
     }
     // A spent output never becomes unspent again, so keep that answer
-    if (value.state !== 'spent') this.onchainCache.set(key, { at: Date.now(), value });
-    else this.onchainCache.set(key, { at: Infinity, value });
+    this.onchainCache.set(key, { at: value.state === 'spent' ? Infinity : Date.now(), value });
     return value;
   }
 
-  /** Funded channels with their on-chain state and lock totals. */
-  async summary(explorer) {
+  /** Funded channels (optionally only one customer's/provider's) with on-chain state and totals. */
+  async summary(explorer, filter = {}) {
     const now = Date.now();
     const rows = [];
-    for (const c of this.channels.values()) {
-      if (!c.utxo) {
-        if (now - c.createdAt > STALE_PROPOSAL_MS) continue; // never funded
-      }
+    for (const c of this.list(filter)) {
+      if (!c.utxo && now - c.createdAt > STALE_PROPOSAL_MS) continue; // never funded
       const onchain = await this.onchainStatus(c, explorer);
       const capacity = c.utxo ? c.utxo.satoshis - c.params.closeFee : 0;
       rows.push({
         channelId: c.channelId,
         providerName: c.providerName,
+        providerId: c.providerId || null,
+        model: c.model || null,
         status: c.status,
         depositSats: c.utxo ? c.utxo.satoshis : 0,
         paidSats: c.paidSats || 0,

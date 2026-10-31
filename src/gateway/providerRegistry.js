@@ -23,6 +23,8 @@ class ProviderRegistry {
   cleanup() {
     const now = Date.now();
     for (const [id, provider] of this.providers.entries()) {
+      // Hosted providers run inside the gateway and send no heartbeat
+      if (provider.hosted) continue;
       if (now - provider.lastSeen > 30000) {
         console.log(`[Registry] Provider ${provider.name} (${id}) timed out. Removing.`);
         this.providers.delete(id);
@@ -40,7 +42,9 @@ class ProviderRegistry {
       identityKey: p.identityKey || null,
       pricing: p.pricing,
       supportsChannels: !!p.channelEndpoint,
-      status: 'online',
+      hosted: !!p.hosted,
+      available: p.available !== false,
+      status: p.status || 'online',
       lastSeen: p.lastSeen
     }));
   }
@@ -49,9 +53,12 @@ class ProviderRegistry {
    * Pick the cheapest matching provider for this request. Ranking uses a local
    * token estimate; the chosen provider then returns an exact quote.
    */
-  getBestProvider(model = 'gemini-1.5-pro', { prompt = '', maxOutputTokens, requireChannels = false } = {}) {
+  getBestProvider(model = 'gemini-1.5-pro', { prompt = '', maxOutputTokens, requireChannels = false, excludeHosted = false } = {}) {
     const active = Array.from(this.providers.values()).filter(p => {
       if (!p.endpoint) return false;
+      if (p.available === false) return false;
+      // Hosted providers only take channel payments, not the legacy invoice /execute flow
+      if (excludeHosted && p.hosted) return false;
       if (requireChannels && !p.channelEndpoint) return false;
       return supportsModel(p, model);
     });

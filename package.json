@@ -10,7 +10,8 @@
     "test": "node test/test_all.js && node test/model_routing.js",
     "build:contracts": "cd contracts && npx scrypt-cli compile && npx tsc -p tsconfig.json",
     "test:contracts": "cd contracts && node --test test/",
-    "test:channel": "node test/channel_e2e.js"
+    "test:channel": "node test/channel_e2e.js",
+    "test:network": "node test/network_e2e.js"
   },
   "keywords": [
     "bsv",

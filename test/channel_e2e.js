@@ -21,13 +21,18 @@ const ChannelClient = require('../src/public/channelClient');
 const ProviderAgent = require('../src/provider/agent');
 const channelLib = require('../contracts/dist/channel');
 const wallet = require('../src/bsv/wallet');
+const { login } = require('./helpers/login');
+const { buildFundingBeef } = require('./helpers/funding');
 
 const GATEWAY_PORT = 3398;
 const PROVIDER_PORT = 4098;
 const GATEWAY = `http://localhost:${GATEWAY_PORT}`;
 
+// Session cookie of the signed-in customer (set once the gateway is up)
+let cookie = '';
+
 async function post(url, body) {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body || {}) });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
@@ -43,27 +48,6 @@ async function waitFor(fn, label, tries = 60) {
   throw new Error(`Timed out waiting for ${label}`);
 }
 
-/** Funding tx locking `deposit` sats into the channel script, as BSV Desktop would return it. */
-async function buildFundingBeef(lockingScriptHex, deposit) {
-  const buyerKey = sdk.PrivateKey.fromRandom();
-  const source = new sdk.Transaction(1, [], [{ satoshis: 100000, lockingScript: new sdk.P2PKH().lock(buyerKey.toAddress()) }], 0);
-  source.merklePath = new sdk.MerklePath(900000, [[
-    { offset: 0, hash: source.id('hex'), txid: true },
-    { offset: 1, duplicate: true }
-  ]]);
-  const funding = new sdk.Transaction(1, [{
-    sourceTransaction: source,
-    sourceOutputIndex: 0,
-    sequence: 0xffffffff,
-    unlockingScriptTemplate: new sdk.P2PKH().unlock(buyerKey)
-  }], [
-    { satoshis: 50000, lockingScript: new sdk.P2PKH().lock(buyerKey.toAddress()) }, // change first: vout must be detected
-    { satoshis: deposit, lockingScript: sdk.Script.fromHex(lockingScriptHex) }
-  ], 0);
-  await funding.sign();
-  return funding.toAtomicBEEF();
-}
-
 async function run() {
   const providerPayout = wallet.generateKeypair().address;
   const broadcasts = [];
@@ -72,7 +56,7 @@ async function run() {
   let funded = true;
 
   const gateway = spawn(process.execPath, [path.join(__dirname, '../src/gateway/server.js')], {
-    env: { ...process.env, PORT: String(GATEWAY_PORT), GEMINI_API_KEY: '', CHANNEL_REGISTRY_PATH: path.join(tmpDir, 'gateway.json') },
+    env: { ...process.env, PORT: String(GATEWAY_PORT), GEMINI_API_KEY: '', DATA_DIR: path.join(tmpDir, 'gateway-data') },
     stdio: 'ignore'
   });
 
@@ -101,6 +85,7 @@ async function run() {
 
   try {
     await waitFor(async () => (await fetch(`${GATEWAY}/api/status`)).ok, 'gateway');
+    ({ cookie } = await login(GATEWAY, undefined, 'customer'));
     await provider.start();
     await waitFor(async () => {
       const { providers } = await (await fetch(`${GATEWAY}/api/providers`)).json();
@@ -196,7 +181,7 @@ async function run() {
     console.log('  ✔ Early refund and unfunded channels are refused.');
 
     // 7. Gateway lists brokered channels for the locked-funds view
-    const listed = await (await fetch(`${GATEWAY}/api/channels`)).json();
+    const listed = await (await fetch(`${GATEWAY}/api/channels`, { headers: { Cookie: cookie } })).json();
     const byId = Object.fromEntries(listed.channels.map(c => [c.channelId, c]));
     assert.strictEqual(byId[proposal.channelId].status, 'CLOSED');
     assert.strictEqual(byId[proposal.channelId].settleTxid, closed.settleTxid);
@@ -206,7 +191,7 @@ async function run() {
     // A channel funded before the gateway kept records can be reported by the browser
     const legacy = { channelId: 'ch_00112233aabbccdd', params: p2.params, utxo: { txid: '12'.repeat(32), vout: 0, satoshis: 777 }, providerName: 'old', status: 'FUNDED' };
     await post(`${GATEWAY}/api/channels/track`, legacy);
-    const listed2 = await (await fetch(`${GATEWAY}/api/channels`)).json();
+    const listed2 = await (await fetch(`${GATEWAY}/api/channels`, { headers: { Cookie: cookie } })).json();
     assert(listed2.channels.some(c => c.channelId === legacy.channelId && c.status === 'OPEN_FAILED'));
     console.log(`  ✔ /api/channels lists ${listed2.channels.length} channels (on-chain lookups: ${[...new Set(listed2.channels.map(c => c.onchain.state))].join(', ')}).`);
 

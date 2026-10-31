@@ -98,6 +98,8 @@
     });
   });
 
-  refresh();
-  setInterval(refresh, REFRESH_MS);
+  Session.requireLogin().then(() => {
+    refresh();
+    setInterval(refresh, REFRESH_MS);
+  });
 })();

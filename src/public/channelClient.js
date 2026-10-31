@@ -18,7 +18,8 @@
 })(typeof self !== 'undefined' ? self : this, function (bsv) {
   const SIGHASH_ALL_FORKID = 0x41;
   const SEQUENCE_FINAL = 0xffffffff;
-  const MAX_CLOSE_FEE = 50;
+  // Close fees follow miner policy (~100-120 sats/kB for a ~2.7 kB settlement); refuse anything far above
+  const MAX_CLOSE_FEE = 2000;
   const MAX_TTL_SEC = 3 * 24 * 60 * 60;
 
   function generateSessionKey() {

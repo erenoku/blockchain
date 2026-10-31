@@ -4,13 +4,20 @@
     {
       "name": "gateway",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["src/gateway/server.js"],
+      "runtimeArgs": [
+        "src/gateway/server.js"
+      ],
       "port": 3300
     },
     {
       "name": "gateway-preview",
       "runtimeExecutable": "env",
-      "runtimeArgs": ["PORT=3301", "CHANNEL_REGISTRY_PATH=/private/tmp/claude-501/-Users-osmankaan-Projects-blockchain/e28602e4-8da2-4107-ace0-5c151aae01ec/scratchpad/gw-preview.json", "node", "src/gateway/server.js"],
+      "runtimeArgs": [
+        "PORT=3301",
+        "DATA_DIR=/private/tmp/claude-501/-Users-osmankaan-Projects-blockchain/e28602e4-8da2-4107-ace0-5c151aae01ec/scratchpad/preview-data",
+        "node",
+        "src/gateway/server.js"
+      ],
       "port": 3301
     }
   ]

@@ -8,6 +8,7 @@ const pricing = require('../pricing');
 const ChannelBook = require('./channelBook');
 const WhatsOnChainClient = require('../bsv/explorer');
 const { supportsModel, isOpenAIModel } = require('../modelRouting');
+const { runChannelQuery, settleChannel } = require('./channelOps');
 
 class ProviderAgent {
   constructor(options = {}) {
@@ -129,16 +130,9 @@ class ProviderAgent {
     return { model, engine };
   }
 
-  async settleChannel(channelId, opts) {
-    const rawTx = this.channels.settle(channelId, opts);
-    if (!rawTx) {
-      this.channels.markSettled(channelId, null);
-      return null;
-    }
-    const result = await this.explorer.broadcastRawTx(rawTx);
-    const txid = typeof result === 'string' ? result : result.txid;
-    this.channels.markSettled(channelId, txid);
-    console.log(`[Provider] Channel ${channelId} settled on-chain: ${txid}`);
+  async settleChannel(channelId, opts = {}) {
+    const txid = await settleChannel({ channels: this.channels, explorer: this.explorer, channelId, closeSig: opts.closeSig });
+    if (txid) console.log(`[Provider] Channel ${channelId} settled on-chain: ${txid}`);
     return txid;
   }
 
@@ -163,17 +157,13 @@ class ProviderAgent {
     this.app.post('/channel/:id/query', channelRoute(async (req) => {
       const { prompt, maxOutputTokens, model: reqModel } = req.body;
       if (!prompt || typeof prompt !== 'string') throw new Error('Prompt is required');
-
       const { model, engine } = this.selectEngine(reqModel);
-
-      const { inputTokens } = await engine.countTokens(prompt);
-      const cap = pricing.clampMaxOutputTokens(maxOutputTokens, this.pricing);
-      const worstCase = pricing.quote({ inputTokens, maxOutputTokens: cap, pricing: this.pricing });
-      this.channels.assertCanQuery(req.params.id, worstCase.totalSats);
-
-      const result = await engine.generateAnswer(prompt, { maxOutputTokens: cap, model });
+      const { usage, ...result } = await runChannelQuery({
+        channels: this.channels, engine, model, providerPricing: this.pricing,
+        channelId: req.params.id, prompt, maxOutputTokens
+      });
       console.log(`[Provider] Channel ${req.params.id}: generated answer via ${model}, releasing in paid chunks.`);
-      return { model: result.model, maxOutputTokens: cap, ...this.channels.addQuery(req.params.id, result) };
+      return result;
     }));
 
     this.app.post('/channel/:id/chunk', channelRoute((req) => this.channels.payChunk(req.params.id, req.body)));

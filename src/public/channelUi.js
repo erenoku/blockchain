@@ -146,7 +146,8 @@
       const expires = new Date(channel.params.expiry * 1000).toLocaleString();
       el('channel-status').innerHTML =
         `Kanal <code>${channel.channelId}</code> · ${channel.providerName}<br>` +
-        `Harcanan: <b>${channel.paidSats}</b> / ${capacity()} sats · Kalan: <b>${capacity() - channel.paidSats}</b> sats · Son geçerlilik: ${expires}`;
+        `Harcanan: <b>${channel.paidSats}</b> / ${capacity()} sats · Kalan: <b>${capacity() - channel.paidSats}</b> sats · Son geçerlilik: ${expires}<br>` +
+        `<span style="color:#9ca3af;">Kanal kapanırken ${channel.params.closeFee} sats madenci ücreti düşülür.</span>`;
     }
   }
 
@@ -190,6 +191,8 @@
   async function openChannel() {
     const deposit = parseInt(el('channel-deposit').value, 10);
     if (!(deposit >= 100)) throw new Error('Depozito en az 100 sats olmalı.');
+    const selected = getSelectedProvider();
+    if (!selected) throw new Error('Önce pazaryerinden bir provider ve model seçin.');
 
     message('BSV Desktop kimliği alınıyor...');
     const identityKey = (await wallet('getPublicKey', { identityKey: true })).publicKey;
@@ -209,9 +212,15 @@
     const proposal = await post('/api/channel/prepare', {
       sessionPubKey: session.pubKey,
       buyerAddress,
-      model: el('model-select').value
+      model: el('model-select').value,
+      providerId: selected.providerId
     });
     ChannelClient.checkProposal(proposal, { sessionPubKey: session.pubKey, buyerAddress });
+    // Check before locking anything: a deposit below the miner fee could never be closed or refunded
+    const minDeposit = proposal.params.closeFee + proposal.pricing.minSats;
+    if (deposit < minDeposit) {
+      throw new Error(`Depozito en az ${minDeposit} sats olmalı (${proposal.params.closeFee} sats kanal kapanış ücreti + ${proposal.pricing.minSats} sats en az soru ücreti).`);
+    }
 
     message(`BSV Desktop'ta ${deposit} sats kilitleme işlemini onaylayın...`);
     const focusTimer = setTimeout(() => fetch('/api/focus-wallet', { method: 'POST' }).catch(() => {}), 400);
@@ -237,6 +246,7 @@
     channel = {
       status: 'FUNDED',
       channelId: proposal.channelId,
+      providerId: proposal.providerId,
       providerName: proposal.providerName,
       network,
       params: proposal.params,
@@ -269,7 +279,8 @@
     let lastErr;
     for (let attempt = 0; attempt < 15; attempt++) {
       try {
-        return await post(`/api/channel/${c.channelId}/open`, c.utxo);
+        // The funding BEEF lets the provider later claim its earnings into BSV Desktop
+        return await post(`/api/channel/${c.channelId}/open`, { ...c.utxo, fundingBeefHex: c.fundingBeefHex });
       } catch (err) {
         lastErr = err;
         if (!/not found|does not match/i.test(err.message)) break;
@@ -293,6 +304,10 @@
   async function askWithChannel() {
     const prompt = el('prompt-input').value.trim();
     if (!prompt) throw new Error('Lütfen bir soru yazın.');
+    const selected = getSelectedProvider();
+    if (selected && channel.providerId && selected.providerId !== channel.providerId) {
+      throw new Error(`Açık kanalınız ${channel.providerName} provider'ına ait. ${selected.providerName} ile sormak için önce bu kanalı kapatın.`);
+    }
 
     const resultCard = el('result-card');
     const answerEl = el('ai-answer-content');

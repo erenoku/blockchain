@@ -82,7 +82,35 @@ class WhatsOnChainClient {
   /**
    * Broadcast a raw signed transaction (hex) to the BSV network
    */
+  /**
+   * Broadcast through a miner's ARC endpoint first: unlike WhatsOnChain's node, ARC
+   * rejects transactions miners won't mine (e.g. "fee too low") instead of accepting
+   * them silently. Only when ARC can't be reached do we fall back to WhatsOnChain.
+   */
   async broadcastRawTx(rawTxHex) {
+    if (config.ARC_URL) {
+      let res;
+      try {
+        res = await fetch(`${config.ARC_URL}/v1/tx`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rawTx: rawTxHex }),
+          signal: AbortSignal.timeout(20000)
+        });
+      } catch (err) {
+        console.warn(`[ARC] Unreachable (${err.message}), falling back to WhatsOnChain.`);
+      }
+      if (res && res.status < 500) {
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && !['REJECTED', 'DOUBLE_SPEND_ATTEMPTED'].includes(data.txStatus)) return data.txid;
+        throw new Error(`Miner rejected the transaction: ${data.extraInfo || data.detail || data.title || `ARC ${res.status}`}`);
+      }
+      if (res) console.warn(`[ARC] Error ${res.status}, falling back to WhatsOnChain.`);
+    }
+    return this.broadcastViaWoc(rawTxHex);
+  }
+
+  async broadcastViaWoc(rawTxHex) {
     try {
       const res = await fetch(`${this.baseUrl}/tx/raw`, {
         method: 'POST',

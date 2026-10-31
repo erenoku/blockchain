@@ -115,7 +115,8 @@ async function updateQuote() {
       body: JSON.stringify({
         prompt,
         model: document.getElementById('model-select').value,
-        maxOutputTokens: getMaxOutputTokens()
+        maxOutputTokens: getMaxOutputTokens(),
+        providerId: getSelectedProvider()?.providerId
       })
     });
     lastQuote = q;
@@ -140,6 +141,46 @@ modelSelect.addEventListener('change', () => {
   updateQuote();
 });
 
-// Initialize polling
-refreshState();
-setInterval(refreshState, 5000);
+// Provider + model picked in the marketplace (market.js writes it)
+const SELECTION_KEY = 'bsv_selected_provider';
+
+function getSelectedProvider() {
+  try {
+    return JSON.parse(localStorage.getItem(SELECTION_KEY)) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function applySelection() {
+  const sel = getSelectedProvider();
+  const text = document.getElementById('selected-provider-text');
+  const link = document.getElementById('selected-provider-link');
+  if (!sel) {
+    text.textContent = 'Henüz provider seçmediniz.';
+    link.textContent = 'Pazaryerine git →';
+    return;
+  }
+  text.innerHTML = '';
+  text.append('Provider: ', Object.assign(document.createElement('b'), { textContent: sel.providerName }),
+    ` · ${sel.pricing.inputPer1k}/${sel.pricing.outputPer1k} sats per 1K`);
+  link.textContent = 'Değiştir';
+  // Only the chosen provider's models can be asked
+  modelSelect.innerHTML = '';
+  for (const m of sel.models) modelSelect.append(new Option(m, m, false, m === sel.model));
+  modelSelect.dispatchEvent(new Event('change'));
+}
+
+modelSelect.addEventListener('change', () => {
+  const sel = getSelectedProvider();
+  if (sel && sel.model !== modelSelect.value) {
+    localStorage.setItem(SELECTION_KEY, JSON.stringify({ ...sel, model: modelSelect.value }));
+  }
+});
+
+// Initialize: signed-in users only
+Session.requireLogin().then(() => {
+  applySelection();
+  refreshState();
+  setInterval(refreshState, 5000);
+});

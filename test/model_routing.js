@@ -81,11 +81,8 @@ test('HTTP quote, paid execution and channel query all preserve ChatGPT selectio
   const base = `http://127.0.0.1:${server.address().port}`;
   // Exercise the real gateway too, without signing or broadcasting any payment.
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'model-routing-'));
-  process.env.CHANNEL_REGISTRY_PATH = path.join(tempDir, 'gateway.json');
-  t.after(() => {
-    fs.rmSync(path.join(tempDir, 'gateway.json'), { force: true });
-    fs.rmdirSync(tempDir);
-  });
+  process.env.DATA_DIR = tempDir;
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const gateway = require('../src/gateway/server').listen(0, '127.0.0.1');
   await once(gateway, 'listening');
   t.after(() => { gateway.closeAllConnections(); gateway.close(); });

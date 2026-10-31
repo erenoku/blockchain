@@ -9,6 +9,8 @@ class GeminiService {
   constructor(apiKey = process.env.GEMINI_API_KEY, model = process.env.GEMINI_MODEL || 'gemini-3.5-flash') {
     this.apiKey = apiKey;
     this.model = model;
+    // Self-hosted nodes log a prompt preview; the gateway turns this off for hosted providers
+    this.logPrompts = true;
     // Supported fallback waterfall
     this.fallbackModels = ['gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.8-flash'];
   }
@@ -70,7 +72,7 @@ class GeminiService {
     let lastError = null;
     for (const modelName of modelsToTry) {
       try {
-        console.log(`[Gemini] Calling ${modelName} for prompt: "${prompt.slice(0, 50)}..."`);
+        console.log(`[Gemini] Calling ${modelName}${this.logPrompts ? ` for prompt: "${prompt.slice(0, 50)}..."` : ''}`);
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
 
         const requestBody = {

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pazaryeri | BSV AI Swap</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="brand-title">BSV AI SWAP</span>
+        <span class="brand-subtitle">Pazaryeri</span>
+      </div>
+    </div>
+    <div class="nav-metrics"></div>
+  </header>
+
+  <main class="page">
+    <h1 class="page-title">Provider ve model seçin</h1>
+    <p class="page-sub">Fiyatlar 1000 token başına satoshidir. Seçtiğiniz provider ile bir ödeme kanalı açar, sadece okuduğunuz token kadar ödersiniz.</p>
+
+    <div class="toolbar market-toolbar">
+      <div class="field" style="min-width:220px;">
+        <label for="filter-model">Model</label>
+        <select id="filter-model"><option value="">Tüm modeller</option></select>
+      </div>
+      <div class="field" style="min-width:180px;">
+        <label for="sort-by">Sırala</label>
+        <select id="sort-by">
+          <option value="output">Çıktı fiyatı (ucuz → pahalı)</option>
+          <option value="input">Girdi fiyatı (ucuz → pahalı)</option>
+          <option value="speed">Hız (hızlı → yavaş)</option>
+        </select>
+      </div>
+      <span id="market-updated" class="hint"></span>
+    </div>
+
+    <div id="provider-grid" class="provider-grid">
+      <div class="empty-state">Yükleniyor...</div>
+    </div>
+  </main>
+
+  <script src="session.js"></script>
+  <script src="market.js"></script>
+</body>
+</html>

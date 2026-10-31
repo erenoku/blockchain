@@ -25,6 +25,23 @@ module.exports = {
   // WhatsOnChain API endpoints ('main' or 'test')
   WOC_API_BASE: (network) => `https://api.whatsonchain.com/v1/bsv/${network === 'testnet' ? 'test' : 'main'}`,
 
+  // Mark session cookies Secure (set to true when served over HTTPS)
+  COOKIE_SECURE: process.env.COOKIE_SECURE === 'true',
+
+  // Behind a TLS-terminating reverse proxy: trust X-Forwarded-* for client IPs
+  TRUST_PROXY: process.env.TRUST_PROXY === 'true',
+
+  // Other origins allowed to call the API with cookies (comma-separated). Empty = same origin only.
+  CORS_ORIGINS: (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
+
+  // Fee rate for channel settlement/refund transactions. Miners (TAAL, GorillaPool ARC) currently
+  // require 100 sats/kB; the close fee is fixed in the contract when the channel opens, so keep a margin.
+  CHANNEL_FEE_SATS_PER_KB: parseInt(process.env.CHANNEL_FEE_SATS_PER_KB || '120', 10),
+
+  // ARC endpoint used to broadcast settlements, so a miner's fee/policy rejection is reported
+  // (WhatsOnChain's node accepts transactions miners will never mine). Empty disables ARC.
+  ARC_URL: process.env.ARC_URL !== undefined ? process.env.ARC_URL : ((process.env.BSV_NETWORK || 'mainnet') === 'testnet' ? '' : 'https://arc.gorillapool.io'),
+
   // Invoice expiry in milliseconds (10 minutes)
   INVOICE_TTL_MS: 10 * 60 * 1000,
 };

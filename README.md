@@ -132,6 +132,25 @@ For lightning-fast demonstrations where you don't want to switch to the BSV Desk
 
 ---
 
+## 🌐 Multi-User Network
+
+The gateway is a marketplace: anyone signs in with **BSV Desktop** (no passwords; the account is the wallet's identity key) and chooses a role.
+
+- **Providers** open `/provider.html`, add an OpenAI and/or Gemini API key (validated on the server, stored encrypted, never sent back to the browser), pick the models they offer and their price per 1K tokens. Queries run on the gateway with the provider's own key. Earnings settle to a BRC-29 address of the provider's wallet and are claimed into BSV Desktop with one click.
+- **Customers** open `/market.html`, compare providers (price, models, 24h success rate and speed), pick a provider + model, then ask on `/` through a TokenChannel payment channel: they pay only for the tokens they read.
+- **Self-hosted nodes** (`npm run provider`) still work and appear in the marketplace next to hosted providers.
+
+The gateway never holds customer funds: deposits sit in the TokenChannel contract, which only pays the provider what the customer signed for and returns the rest to the customer.
+
+### Deploying the gateway
+
+1. Set `MASTER_KEY` (see `.env.example`), ideally from a secrets manager. Losing it makes stored provider keys unreadable; leaking it together with the database exposes them.
+2. Serve over HTTPS behind a reverse proxy and set `COOKIE_SECURE=true` and `TRUST_PROXY=true`.
+3. Back up `DATA_DIR` (SQLite database `app.db` and `hosted/` channel state) regularly, separately from `MASTER_KEY`.
+4. Rate limits are in memory, so run a single gateway process (or move them to a shared store before scaling out).
+
+Before onboarding real providers, check that OpenAI's and Google's terms allow running a key on behalf of other users.
+
 ## 🧪 Testing
 Run the comprehensive test suite to verify wallets, address generation, replay attack prevention, and Gemini Pro fallback:
 ```bash
