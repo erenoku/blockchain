@@ -64,10 +64,10 @@
   }
 
   function formatRemaining(seconds) {
-    if (seconds <= 0) return 'açık';
+    if (seconds <= 0) return 'available now';
     const h = Math.floor(seconds / 3600);
     const m = Math.ceil((seconds % 3600) / 60);
-    return h > 0 ? `${h} sa ${m} dk kaldı` : `${m} dk kaldı`;
+    return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
   }
 
   function explorerTx(c, txid) {
@@ -101,9 +101,9 @@
   }
 
   const PARKED_LABELS = {
-    OPEN_FAILED: 'açılamadı',
-    CLOSE_FAILED: 'kapatılamadı',
-    AWAITING_REFUND: 'iade bekliyor'
+    OPEN_FAILED: 'open failed',
+    CLOSE_FAILED: 'close failed',
+    AWAITING_REFUND: 'awaiting refund'
   };
 
   function renderParked() {
@@ -114,19 +114,19 @@
     }
     const now = Math.floor(Date.now() / 1000);
     const total = parked.reduce((sum, c) => sum + c.utxo.satoshis, 0);
-    list.innerHTML = `<div style="font-weight:600; color:#fcd34d; margin-bottom:6px;">🔐 Kontratta kilitli: ${total} sats (${parked.length} kanal)</div>` +
+    list.innerHTML = `<div style="font-weight:600; color:#fcd34d; margin-bottom:6px;">🔐 Locked in contract: ${total} sats (${parked.length} channels)</div>` +
       parked.map((c, i) => {
         const open = isExpired(c);
         return `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 0; border-top:1px solid rgba(255,255,255,0.08);">
           <div style="font-size:0.78rem; color:#d1d5db;">
             <b>${c.utxo.satoshis} sats</b> · ${c.providerName} · ${PARKED_LABELS[c.status] || c.status}<br>
-            <span style="color:#9ca3af;">İade: ${new Date(c.params.expiry * 1000).toLocaleString()} (${formatRemaining(c.params.expiry - now)}) ·
-            <a href="${explorerTx(c, c.utxo.txid)}" target="_blank" rel="noopener">kontrat TX ↗</a></span>
+            <span style="color:#9ca3af;">Refund: ${new Date(c.params.expiry * 1000).toLocaleString()} (${formatRemaining(c.params.expiry - now)}) ·
+            <a href="${explorerTx(c, c.utxo.txid)}" target="_blank" rel="noopener">contract TX ↗</a></span>
           </div>
           <div style="display:flex; gap:6px;">
-            ${c.status === 'OPEN_FAILED' && !channel ? `<button type="button" class="btn-copy" data-parked-retry="${i}" style="padding:6px 10px; border-radius:6px; cursor:pointer;">Tekrar Aç</button>` : ''}
-            <button type="button" class="btn-copy" data-parked-refund="${i}" ${open ? '' : 'disabled'} style="padding:6px 10px; border-radius:6px; cursor:${open ? 'pointer' : 'not-allowed'}; opacity:${open ? 1 : 0.5};">İade Al</button>
+            ${c.status === 'OPEN_FAILED' && !channel ? `<button type="button" class="btn-copy" data-parked-retry="${i}" style="padding:6px 10px; border-radius:6px; cursor:pointer;">Retry Open</button>` : ''}
+            <button type="button" class="btn-copy" data-parked-refund="${i}" ${open ? '' : 'disabled'} style="padding:6px 10px; border-radius:6px; cursor:${open ? 'pointer' : 'not-allowed'}; opacity:${open ? 1 : 0.5};">Claim Refund</button>
           </div>
         </div>`;
       }).join('');
@@ -145,9 +145,9 @@
     if (open) {
       const expires = new Date(channel.params.expiry * 1000).toLocaleString();
       el('channel-status').innerHTML =
-        `Kanal <code>${channel.channelId}</code> · ${channel.providerName}<br>` +
-        `Harcanan: <b>${channel.paidSats}</b> / ${capacity()} sats · Kalan: <b>${capacity() - channel.paidSats}</b> sats · Son geçerlilik: ${expires}<br>` +
-        `<span style="color:#9ca3af;">Kanal kapanırken ${channel.params.closeFee} sats madenci ücreti düşülür.</span>`;
+        `Channel <code>${channel.channelId}</code> · ${channel.providerName}<br>` +
+        `Spent: <b>${channel.paidSats}</b> / ${capacity()} sats · Remaining: <b>${capacity() - channel.paidSats}</b> sats · Expires: ${expires}<br>` +
+        `<span style="color:#9ca3af;">A miner fee of ${channel.params.closeFee} sats is deducted when the channel closes.</span>`;
     }
   }
 
@@ -190,11 +190,11 @@
 
   async function openChannel() {
     const deposit = parseInt(el('channel-deposit').value, 10);
-    if (!(deposit >= 100)) throw new Error('Depozito en az 100 sats olmalı.');
+    if (!(deposit >= 100)) throw new Error('Deposit must be at least 100 sats.');
     const selected = getSelectedProvider();
-    if (!selected) throw new Error('Önce pazaryerinden bir provider ve model seçin.');
+    if (!selected) throw new Error('Select a provider and model from the marketplace first.');
 
-    message('BSV Desktop kimliği alınıyor...');
+    message('Reading BSV Desktop identity...');
     const identityKey = (await wallet('getPublicKey', { identityKey: true })).publicKey;
     const derivationPrefix = randomBase64(12);
     const derivationSuffix = randomBase64(12);
@@ -208,7 +208,7 @@
     const buyerAddress = ChannelClient.addressFromPubKey(refundKey, network);
     const session = ChannelClient.generateSessionKey();
 
-    message('Provider ile kanal sözleşmesi hazırlanıyor...');
+    message('Preparing channel contract with provider...');
     const proposal = await post('/api/channel/prepare', {
       sessionPubKey: session.pubKey,
       buyerAddress,
@@ -219,10 +219,10 @@
     // Check before locking anything: a deposit below the miner fee could never be closed or refunded
     const minDeposit = proposal.params.closeFee + proposal.pricing.minSats;
     if (deposit < minDeposit) {
-      throw new Error(`Depozito en az ${minDeposit} sats olmalı (${proposal.params.closeFee} sats kanal kapanış ücreti + ${proposal.pricing.minSats} sats en az soru ücreti).`);
+      throw new Error(`Deposit must be at least ${minDeposit} sats (${proposal.params.closeFee} sats channel close fee + ${proposal.pricing.minSats} sats minimum query fee).`);
     }
 
-    message(`BSV Desktop'ta ${deposit} sats kilitleme işlemini onaylayın...`);
+    message(`Approve locking ${deposit} sats in BSV Desktop...`);
     const focusTimer = setTimeout(() => fetch('/api/focus-wallet', { method: 'POST' }).catch(() => {}), 400);
     let funding;
     try {
@@ -239,7 +239,7 @@
     } finally {
       clearTimeout(focusTimer);
     }
-    if (!Array.isArray(funding.tx)) throw new Error('BSV Desktop işlemi (AtomicBEEF) döndürmedi.');
+    if (!Array.isArray(funding.tx)) throw new Error('BSV Desktop did not return an AtomicBEEF transaction.');
     const utxo = ChannelClient.findChannelOutput(funding.tx, proposal.lockingScriptHex);
 
     // Save before asking the provider, so the deposit is recoverable even if opening fails
@@ -262,17 +262,17 @@
     };
     saveChannel();
 
-    message(`Kilitleme işlemi yayınlandı (${utxo.txid.slice(0, 10)}…). Provider onayı bekleniyor...`);
+    message(`Funding transaction broadcast (${utxo.txid.slice(0, 10)}…). Waiting for provider confirmation...`);
     try {
       await requestOpen(channel);
     } catch (err) {
       parkChannel('OPEN_FAILED');
-      throw new Error(`Provider kanalı açamadı: ${err.message}. Para kontratta güvende (kilitli listede). "Tekrar Aç" deneyebilir, süre dolunca iade alabilir ya da yeni kanal açabilirsiniz.`);
+      throw new Error(`Provider could not open channel: ${err.message}. Your funds are safe in the contract (listed under locked funds). You can click "Retry Open", claim a refund after expiry, or open a new channel.`);
     }
     channel.status = 'OPEN';
     saveChannel();
     trackOnGateway(channel);
-    message('✔ Kanal açık. Artık her cevap parçası için otomatik imza atılacak.', '#10b981');
+    message('✔ Channel open. Each response chunk will now be signed automatically.', '#10b981');
   }
 
   async function requestOpen(c) {
@@ -291,22 +291,22 @@
   }
 
   async function retryParked(index) {
-    if (channel) throw new Error('Önce açık kanalı kapatın.');
+    if (channel) throw new Error('Close your active channel first.');
     const c = parked[index];
-    message('Provider\'dan kanalı tekrar açması isteniyor...');
+    message('Requesting provider to reopen the channel...');
     await requestOpen(c);
     parked.splice(index, 1);
     channel = { ...c, status: 'OPEN' };
     saveChannel();
-    message('✔ Kanal açıldı.', '#10b981');
+    message('✔ Channel opened.', '#10b981');
   }
 
   async function askWithChannel() {
     const prompt = el('prompt-input').value.trim();
-    if (!prompt) throw new Error('Lütfen bir soru yazın.');
+    if (!prompt) throw new Error('Please enter a prompt.');
     const selected = getSelectedProvider();
     if (selected && channel.providerId && selected.providerId !== channel.providerId) {
-      throw new Error(`Açık kanalınız ${channel.providerName} provider'ına ait. ${selected.providerName} ile sormak için önce bu kanalı kapatın.`);
+      throw new Error(`Your open channel belongs to provider ${channel.providerName}. Close this channel first to query ${selected.providerName}.`);
     }
 
     const resultCard = el('result-card');
@@ -317,25 +317,25 @@
     el('token-usage-summary').textContent = '';
     const link = el('tx-explorer-link');
     link.href = `${channel.network === 'testnet' ? 'https://testnet.whatsonchain.com' : 'https://whatsonchain.com'}/tx/${channel.utxo.txid}`;
-    link.textContent = `Kanal kontratı: ${channel.utxo.txid.slice(0, 10)}... (WhatsOnChain ↗)`;
+    link.textContent = `Channel contract: ${channel.utxo.txid.slice(0, 10)}... (WhatsOnChain ↗)`;
 
-    message('Provider cevabı hazırlıyor...');
+    message('Provider is preparing the response...');
     const q = await post(`/api/channel/${channel.channelId}/query`, {
       prompt,
       model: el('model-select').value,
       maxOutputTokens: getMaxOutputTokens()
     });
-    el('result-model-label').textContent = `AI Cevabı (${q.model})`;
+    el('result-model-label').textContent = `AI Response (${q.model})`;
     el('result-icon').textContent = /^(gpt-|chatgpt-|o\d)/i.test(q.model) ? '🤖' : '✨';
 
     // Never trust the provider's numbers blindly: cap the query at the advertised price
     const promptEstimate = Math.ceil(prompt.length / 4);
     if (q.inputTokens > promptEstimate * 2 + 100) {
-      throw new Error(`Provider girdi token sayısını şüpheli bildirdi (${q.inputTokens}). Ödeme yapılmadı.`);
+      throw new Error(`Provider reported a suspicious input token count (${q.inputTokens}). No payment was made.`);
     }
     const capSats = ChannelClient.maxQuerySats(channel.pricing, q.inputTokens, q.maxOutputTokens);
     if (q.totalQuerySats > capSats) {
-      throw new Error(`Provider ${q.totalQuerySats} sats istedi, fiyat tavanı ${capSats} sats. Ödeme yapılmadı.`);
+      throw new Error(`Provider requested ${q.totalQuerySats} sats, exceeding the price cap of ${capSats} sats. No payment was made.`);
     }
     const state = { baseSats: channel.paidSats, capSats, lastStateSats: channel.paidSats };
 
@@ -343,18 +343,18 @@
     let chunks = 0;
     while (terms) {
       if (stopRequested) {
-        message(`⏹ Durduruldu. Sadece alınan ${chunks}/${q.totalChunks} parça ödendi.`, '#f59e0b');
+        message(`⏹ Stopped. Paid only for ${chunks}/${q.totalChunks} received chunks.`, '#f59e0b');
         break;
       }
       ChannelClient.checkChunkTerms(state, terms);
-      message(`Parça ${terms.index + 1}/${q.totalChunks} için ${terms.stateSats - state.lastStateSats} sats imzalanıyor...`);
+      message(`Signing ${terms.stateSats - state.lastStateSats} sats for chunk ${terms.index + 1}/${q.totalChunks}...`);
       const sessionSig = ChannelClient.signState(channel, terms.stateSats, channel.sessionWif);
       const chunk = await post(`/api/channel/${channel.channelId}/chunk`, {
         queryId: terms.queryId,
         index: terms.index,
         sessionSig
       });
-      if (chunk.paidSats !== terms.stateSats) throw new Error('Provider farklı bir tutar kaydetti, durduruldu.');
+      if (chunk.paidSats !== terms.stateSats) throw new Error('Provider recorded a mismatched amount; stopped.');
 
       // Re-render the whole answer so markdown split across chunks still formats correctly
       answerMarkdown += chunk.text;
@@ -369,9 +369,9 @@
 
     const querySats = state.lastStateSats - state.baseSats;
     el('token-usage-summary').textContent =
-      `Bu soru: ${querySats} sats (${chunks}/${q.totalChunks} parça, ${q.inputTokens} girdi token) · ` +
-      `Fiyat tavanı ${capSats} sats idi · Kanalda kalan: ${capacity() - channel.paidSats} sats`;
-    if (!stopRequested) message('✔ Cevap tamamlandı.', '#10b981');
+      `This query: ${querySats} sats (${chunks}/${q.totalChunks} chunks, ${q.inputTokens} input tokens) · ` +
+      `Price cap was ${capSats} sats · Remaining in channel: ${capacity() - channel.paidSats} sats`;
+    if (!stopRequested) message('✔ Response complete.', '#10b981');
     if (typeof refreshState === 'function') refreshState();
   }
 
@@ -381,20 +381,20 @@
       ? ChannelClient.signState(channel, 1, channel.sessionWif)
       : undefined;
 
-    message('Provider kanalı kapatıyor ve zincire yazıyor...');
+    message('Provider is settling the channel on-chain...');
     let closed;
     try {
       closed = await post(`/api/channel/${channel.channelId}/close`, { closeSig });
     } catch (err) {
       const expiry = new Date(channel.params.expiry * 1000).toLocaleString();
       parkChannel('CLOSE_FAILED');
-      throw new Error(`Provider kanalı kapatamadı (${err.message}). Para kilitli listede; ${expiry} sonrası "İade Al" ile geri alabilirsiniz. Yeni kanal açabilirsiniz.`);
+      throw new Error(`Provider could not close the channel (${err.message}). Funds are in the locked list; you can claim a refund after ${expiry} or open a new channel.`);
     }
 
     if (!closed.settleTx) {
       const expiry = new Date(channel.params.expiry * 1000).toLocaleString();
       parkChannel('AWAITING_REFUND');
-      throw new Error(`Provider kapanış işlemi üretmedi. Para kilitli listede; ${expiry} sonrası "İade Al" ile geri alabilirsiniz.`);
+      throw new Error(`Provider did not produce a settlement transaction. Funds are in the locked list; you can claim a refund after ${expiry}.`);
     }
 
     let refunded = null;
@@ -402,13 +402,13 @@
       try {
         refunded = await internalizeRefund(channel, closed.settleTx);
       } catch (err) {
-        message(`Kanal kapandı (${closed.settleTxid}), ancak iade cüzdana otomatik alınamadı: ${err.message}`, '#f59e0b');
+        message(`Channel closed (${closed.settleTxid}), but the refund could not be automatically internalized into your wallet: ${err.message}`, '#f59e0b');
         channel = null;
         saveChannel();
         return;
       }
     }
-    message(`✔ Kanal kapandı. Provider'a ${closed.paidSats} sats ödendi${refunded ? `, ${refunded} sats cüzdanınıza geri döndü` : ''}. TX: ${closed.settleTxid}`, '#10b981');
+    message(`✔ Channel closed. Paid ${closed.paidSats} sats to provider${refunded ? `, returned ${refunded} sats to your wallet` : ''}. TX: ${closed.settleTxid}`, '#10b981');
     channel = null;
     saveChannel();
   }
@@ -416,9 +416,9 @@
   async function refundParked(index) {
     const c = parked[index];
     if (!isExpired(c)) {
-      throw new Error(`İade ${new Date(c.params.expiry * 1000).toLocaleString()} tarihinden sonra alınabilir (${formatRemaining(c.params.expiry - Math.floor(Date.now() / 1000))}).`);
+      throw new Error(`Refund will be available after ${new Date(c.params.expiry * 1000).toLocaleString()} (${formatRemaining(c.params.expiry - Math.floor(Date.now() / 1000))}).`);
     }
-    message('İade işlemi hazırlanıyor...');
+    message('Preparing refund transaction...');
     const r = await post('/api/channel/refund', { channelId: c.channelId, params: c.params, utxo: c.utxo });
     parked.splice(index, 1);
     saveChannel();
@@ -426,10 +426,10 @@
     try {
       refunded = await internalizeRefund(c, r.refundTx);
     } catch (err) {
-      message(`İade zincire yazıldı (${r.refundTxid}), ancak cüzdana otomatik alınamadı: ${err.message}`, '#f59e0b');
+      message(`Refund broadcast on-chain (${r.refundTxid}), but could not be automatically internalized into your wallet: ${err.message}`, '#f59e0b');
       return;
     }
-    message(`✔ ${refunded} sats cüzdanınıza geri döndü. TX: ${r.refundTxid}`, '#10b981');
+    message(`✔ ${refunded} sats returned to your wallet. TX: ${r.refundTxid}`, '#10b981');
   }
 
   // Locked-funds overview from the gateway (sidebar)
@@ -444,12 +444,12 @@
       el('nav-locked-sats').textContent = `${data.totalLockedSats} sats`;
       const now = Math.floor(Date.now() / 1000);
       box.innerHTML = locked.length === 0
-        ? '<div class="empty-state">Kontratta kilitli para yok.</div>'
+        ? '<div class="empty-state">No funds currently locked in contracts.</div>'
         : locked.map(c => `
           <div class="swap-item">
             <div>
               <div style="font-size:0.8rem;">${c.depositSats} sats · ${c.providerName}</div>
-              <div style="font-size:0.7rem; color:#9ca3af;">${c.status} · iade ${formatRemaining(c.expiry - now)}${c.onchain.state === 'unknown' ? ' · zincir durumu bilinmiyor' : ''}</div>
+              <div style="font-size:0.7rem; color:#9ca3af;">${c.status} · refund ${formatRemaining(c.expiry - now)}${c.onchain.state === 'unknown' ? ' · chain status unknown' : ''}</div>
             </div>
             <a class="swap-tx" href="${data.network === 'testnet' ? 'https://testnet.whatsonchain.com' : 'https://whatsonchain.com'}/tx/${c.fundingTxid}" target="_blank" rel="noopener">${c.fundingTxid.slice(0, 8)}… ↗</a>
           </div>`).join('');

@@ -26,7 +26,7 @@
     const all = [...new Set([...engineModels.openai, ...engineModels.gemini])];
     const box = el('model-checks');
     if (all.length === 0) {
-      box.innerHTML = '<span class="hint">Önce bir API anahtarını test edin.</span>';
+      box.innerHTML = '<span class="hint">Test an API key first.</span>';
       return;
     }
     const checked = new Set(selected || [...box.querySelectorAll('input:checked')].map(i => i.value));
@@ -42,9 +42,9 @@
       const removeBtn = document.querySelector(`[data-remove="${engine}"]`);
       removeBtn.classList.toggle('hidden', !stored);
       if (testedKeys[engine]) {
-        status.innerHTML = `<span style="color:var(--green)">✔ Anahtar geçerli · ${engineModels[engine].length} model</span>`;
+        status.innerHTML = `<span style="color:var(--green)">✔ Key valid · ${engineModels[engine].length} models</span>`;
       } else if (stored) {
-        status.textContent = `Kayıtlı anahtar: ••••${stored.last4} · ${stored.models.length} model. Değiştirmek için yenisini yazıp test edin.`;
+        status.textContent = `Saved key: ••••${stored.last4} · ${stored.models.length} models. Enter and test a new key to replace it.`;
       } else {
         status.textContent = '';
       }
@@ -53,28 +53,28 @@
 
   function render() {
     const exists = !!provider;
-    el('page-title').textContent = exists ? provider.name : 'Provider ol';
+    el('page-title').textContent = exists ? provider.name : 'Become a Provider';
     el('status-card').classList.toggle('hidden', !exists);
     el('earnings-card').classList.toggle('hidden', !exists);
-    el('btn-save').innerHTML = `<span>${exists ? 'Değişiklikleri kaydet' : 'Kaydet ve yayına al'}</span>`;
+    el('btn-save').innerHTML = `<span>${exists ? 'Save changes' : 'Save and publish'}</span>`;
     if (!exists) return;
 
-    el('page-sub').textContent = 'Ayarlarınızı güncelleyin. Kazançlarınız aşağıda; "Cüzdana al" ile BSV Desktop\'a aktarabilirsiniz.';
+    el('page-sub').textContent = 'Update your settings. Your earnings are listed below; use "Claim to wallet" to transfer them into BSV Desktop.';
     const pill = el('status-pill');
     if (!provider.enabled) {
       pill.className = 'status-pill off';
-      pill.textContent = 'Yayında değil';
+      pill.textContent = 'Offline';
     } else if (provider.status === 'error') {
       pill.className = 'status-pill error';
-      pill.textContent = 'Hata';
+      pill.textContent = 'Error';
     } else {
       pill.className = 'status-pill ok';
-      pill.textContent = 'Yayında';
+      pill.textContent = 'Live';
     }
     el('status-text').innerHTML =
       (provider.status === 'error' && provider.statusReason ? `<b>${provider.statusReason}</b><br>` : '') +
-      `Ödeme adresi: <code>${provider.payoutAddress}</code> · ${provider.models.length} model sunuluyor`;
-    el('btn-toggle').textContent = provider.enabled ? 'Yayından kaldır' : 'Yayına al';
+      `Payout address: <code>${provider.payoutAddress}</code> · ${provider.models.length} models offered`;
+    el('btn-toggle').textContent = provider.enabled ? 'Take offline' : 'Go live';
   }
 
   function payoutMode() {
@@ -90,8 +90,8 @@
     document.querySelector(`input[name="payout-mode"][value="${provider.payoutMode}"]`).checked = true;
     el('f-payout-identity').value = provider.payoutIdentityKey || user.identityKey;
     el('payout-current').innerHTML = provider.payoutMode === 'identity'
-      ? `Ödemeler şu kimlik anahtarına gidiyor: <code>${provider.payoutIdentityKey}</code>`
-      : 'Ödemeler giriş yaptığınız BSV Desktop cüzdanına gidiyor ("Cüzdana al" ile).';
+      ? `Payouts go to identity key: <code>${provider.payoutIdentityKey}</code>`
+      : 'Payouts go to your signed-in BSV Desktop wallet (via "Claim to wallet").';
     renderPayoutChoice();
     el('f-in').value = provider.pricing.inputPer1k;
     el('f-out').value = provider.pricing.outputPer1k;
@@ -104,10 +104,10 @@
     const apiKey = el(`key-${engine}`).value.trim();
     const status = el(`key-status-${engine}`);
     if (!apiKey) {
-      status.textContent = 'Önce anahtarı yazın.';
+      status.textContent = 'Enter an API key first.';
       return;
     }
-    status.textContent = 'Test ediliyor...';
+    status.textContent = 'Testing...';
     try {
       const r = await Session.api('/api/provider/validate-key', { method: 'POST', body: JSON.stringify({ engine, apiKey }) });
       engineModels[engine] = r.models;
@@ -121,7 +121,7 @@
   }
 
   async function removeKey(engine) {
-    if (!confirm(`${engine === 'openai' ? 'OpenAI' : 'Gemini'} anahtarı silinsin mi? Bu anahtarla sunulan modeller pazaryerinden kalkar.`)) return;
+    if (!confirm(`Remove ${engine === 'openai' ? 'OpenAI' : 'Gemini'} key? Models served by this key will be removed from the marketplace.`)) return;
     try {
       provider = (await Session.api(`/api/provider/me/keys/${engine}`, { method: 'DELETE' })).provider;
       engineModels[engine] = [];
@@ -154,7 +154,7 @@
       // A typed but untested key would silently not be saved
       for (const engine of ENGINES) {
         const typed = el(`key-${engine}`).value.trim();
-        if (typed && testedKeys[engine] !== typed) throw new Error(`${engine === 'openai' ? 'OpenAI' : 'Gemini'} anahtarını kaydetmeden önce "Test et" ile doğrulayın.`);
+        if (typed && testedKeys[engine] !== typed) throw new Error(`Please verify your ${engine === 'openai' ? 'OpenAI' : 'Gemini'} key using "Test" before saving.`);
       }
       const models = [...el('model-checks').querySelectorAll('input:checked')].map(i => i.value);
       const body = {
@@ -166,15 +166,15 @@
       if (payoutMode() === 'identity') {
         const identityKey = el('f-payout-identity').value.trim().toLowerCase();
         if (!/^(02|03)[0-9a-f]{64}$/.test(identityKey)) {
-          throw new Error(`Kimlik anahtarı 66 karakter olmalı ve 02 veya 03 ile başlamalı (${identityKey.length} karakter girildi).`);
+          throw new Error(`Identity key must be 66 characters and start with 02 or 03 (${identityKey.length} characters entered).`);
         }
         if (!provider || provider.payoutMode !== 'identity' || provider.payoutIdentityKey !== identityKey) body.payout = { identityKey };
       } else if (!provider || provider.payoutMode !== 'wallet') {
         // A fresh BSV Desktop key only when first choosing the wallet option
-        message('BSV Desktop\'tan ödeme anahtarı alınıyor...');
+        message('Requesting payout key from BSV Desktop...');
         body.payout = await derivePayout();
       }
-      message('Kaydediliyor...');
+      message('Saving...');
       provider = (await Session.api('/api/provider/setup', { method: 'POST', body: JSON.stringify(body) })).provider;
       for (const engine of ENGINES) {
         el(`key-${engine}`).value = '';
@@ -184,7 +184,7 @@
       render();
       renderKeyStatus();
       if (window.ProviderEarnings) ProviderEarnings.refresh(provider, user);
-      message('✔ Kaydedildi.', 'var(--green)');
+      message('✔ Saved.', 'var(--green)');
     } catch (err) {
       message(`⚠ ${err.message}`, 'var(--gold)');
     } finally {

@@ -1,0 +1,447 @@
+/* Start page, technical architecture schematic, and BSV Desktop authentication console. */
+
+.start-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: 8px;
+}
+.start-nav-links a {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color .12s;
+}
+.start-nav-links a:hover {
+  color: var(--text-main);
+}
+
+.start-main {
+  width: 100%;
+  max-width: 1180px;
+  padding: 36px 28px 44px;
+  margin: 0 auto;
+  flex: 1;
+}
+
+/* Hero split layout */
+.start-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, 410px);
+  gap: 28px;
+  align-items: start;
+  padding-bottom: 44px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.hero-pitch {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.protocol-strip {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent-strong);
+  border-radius: 6px;
+  background: var(--bg-input);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.strip-sep {
+  color: var(--text-faint);
+}
+
+.hero-title {
+  font-size: clamp(26px, 3.2vw, 36px);
+  font-weight: 650;
+  line-height: 1.16;
+  letter-spacing: -0.9px;
+  color: var(--text-main);
+  max-width: 22ch;
+}
+
+.hero-lead {
+  font-size: 14px;
+  line-height: 1.68;
+  color: var(--text-muted);
+  max-width: 64ch;
+}
+.hero-lead code, .channel-schematic code, .start-section code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: var(--accent);
+  background: var(--bg-raised);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+/* Technical schematic card */
+.channel-schematic {
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.schematic-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 16px;
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border-soft);
+}
+.schematic-sig {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.schematic-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.schematic-step {
+  padding: 16px;
+  border-right: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.schematic-step:last-child {
+  border-right: 0;
+}
+.step-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.step-num {
+  color: var(--accent);
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(var(--accent-rgb), .3);
+}
+.step-tag {
+  color: var(--text-faint);
+}
+.schematic-step h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-top: 2px;
+}
+.schematic-step p {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.schematic-trace {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg-input);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-main);
+}
+.trace-key {
+  color: var(--text-faint);
+  margin-right: 4px;
+}
+
+/* Right-hand Wallet Session Console */
+.hero-console {
+  position: sticky;
+  top: 84px;
+}
+.console-shell {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--accent-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.console-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 20px;
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.console-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.console-bridge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-faint);
+}
+
+.auth-card {
+  padding: 22px 20px 20px;
+}
+.auth-card h2 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.35px;
+  color: var(--text-main);
+  margin: 0 0 8px;
+}
+.auth-card .card-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.auth-connect {
+  min-height: 42px;
+  font-size: 13px;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+.btn-arrow {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.auth-message {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.auth-message:empty {
+  display: none;
+}
+
+.session-specs {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+  display: grid;
+  gap: 9px;
+}
+.session-specs > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 11.5px;
+}
+.session-specs dt {
+  color: var(--text-faint);
+}
+.session-specs dd {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
+}
+
+/* Role cards in step 2 */
+.role-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.35px;
+  margin: 0 0 6px;
+}
+.role-desc {
+  margin-bottom: 14px;
+}
+.role-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-strong);
+  border-radius: var(--radius-md);
+  text-align: left;
+  color: var(--text-main);
+  transition: border-color .12s, background .12s;
+}
+.role-card:hover:not(:disabled) {
+  background: var(--bg-raised);
+  border-color: var(--accent-strong);
+}
+.role-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 500;
+}
+.role-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-main);
+}
+.role-text {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Lower sections: Live Market & Architectural Comparison */
+.start-section {
+  padding: 36px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.section-eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.section-head h2 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  color: var(--text-main);
+}
+.section-head p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  max-width: 68ch;
+  line-height: 1.55;
+}
+
+.model-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.model-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+}
+
+.arch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.arch-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.arch-card.featured {
+  border-color: var(--accent-strong);
+  border-top: 2px solid var(--accent-strong);
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), .06), var(--bg-card) 42%);
+}
+.arch-card-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.arch-card-head h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.arch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.arch-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+.arch-list li span {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.arch-list li strong {
+  font-weight: 500;
+  color: var(--text-main);
+}
+.arch-card.featured .arch-list li strong {
+  color: var(--accent);
+}
+
+@media (max-width: 960px) {
+  .start-nav-links {
+    display: none;
+  }
+  .start-hero {
+    grid-template-columns: 1fr;
+  }
+  .hero-console {
+    position: static;
+  }
+  .schematic-steps, .arch-grid {
+    grid-template-columns: 1fr;
+  }
+  .schematic-step {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .schematic-step:last-child {
+    border-bottom: 0;
+  }
+}

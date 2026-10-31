@@ -3,160 +3,206 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BSV AI Token Swap | Decentralized Micro-Inference Pool</title>
+  <meta name="theme-color" content="#0e0d12">
+  <title>BSV AI Swap</title>
+  <link rel="icon" href="brand.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="experience.css">
+  <link rel="stylesheet" href="site.css">
   <link rel="stylesheet" href="vendor/katex/katex.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
-<body>
-  <!-- Header / Navigation -->
+<body class="experience playground-page">
+  <a class="skip-link" href="#request-workspace">Skip to content</a>
+
   <header class="navbar">
-    <div class="nav-brand">
-      <div class="logo-icon">⚡</div>
-      <div class="logo-text">
-        <span class="brand-title">BSV AI SWAP</span>
-        <span class="brand-subtitle">Powered by Bitcoin SV, OpenAI & Gemini</span>
-      </div>
-    </div>
-    <div class="nav-metrics">
-      <div class="metric-pill">
-        <span class="dot green"></span>
-        <span id="network-badge">BSV MAINNET</span>
-      </div>
-      <div class="metric-pill">
-        <span class="label">Providers Online:</span>
-        <span id="provider-count" class="value">0</span>
-      </div>
-      <div class="metric-pill">
-        <span class="label">Total Sats Swapped:</span>
-        <span id="total-sats-count" class="value">0</span>
-      </div>
-      <a class="metric-pill" href="/locked.html" style="text-decoration:none; color:inherit;">
-        <span class="label">🔐 Kilitli:</span>
-        <span id="nav-locked-sats" class="value">0 sats</span>
+    <div class="nav-inner">
+      <a class="nav-brand" href="/" aria-label="BSV AI Swap home">
+        <svg class="logo-icon" width="28" height="28" viewBox="0 0 36 36" aria-hidden="true">
+          <rect x="1.5" y="1.5" width="33" height="33" rx="8.5" fill="#13101c" stroke="var(--accent-strong)" stroke-opacity=".55" stroke-width="1.5"/>
+          <path d="M19.5 7.5 10.5 19.5h7l-1 9 9-12h-7l1-9Z" fill="var(--accent-strong)" stroke="var(--accent)" stroke-width="1" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand-title">bsv<span class="brand-light">ai</span><span class="brand-divider">/</span><span class="brand-product">swap</span></span>
       </a>
+      <div class="nav-metrics">
+        <div class="metric-pill network-pill">
+          <span class="dot green"></span>
+          <span id="network-badge">BSV MAINNET</span>
+        </div>
+        <div class="metric-pill">
+          <span class="label">Providers:</span>
+          <span id="provider-count" class="value">0</span>
+        </div>
+        <div class="metric-pill">
+          <span class="label">Total Swapped:</span>
+          <span id="total-sats-count" class="value">0</span>
+        </div>
+        <a class="metric-pill locked-pill" href="/locked.html">
+          <span class="label">Locked:</span>
+          <span id="nav-locked-sats" class="value">0 sats</span>
+        </a>
+        <details class="palette-menu" id="accent-menu">
+          <summary aria-label="Choose accent color"><span class="accent-preview"></span><span>Accent</span></summary>
+          <div class="palette-popover">
+            <strong>Accent color</strong>
+            <p>Choose an interface accent.</p>
+            <div class="palette-options" role="group" aria-label="Accent presets">
+              <button type="button" class="color-swatch" data-accent="#9b6dff" aria-label="Violet" aria-pressed="true" style="--swatch:#9b6dff"></button>
+              <button type="button" class="color-swatch" data-accent="#10b981" aria-label="Emerald" aria-pressed="false" style="--swatch:#10b981"></button>
+              <button type="button" class="color-swatch" data-accent="#38bdf8" aria-label="Sky" aria-pressed="false" style="--swatch:#38bdf8"></button>
+              <button type="button" class="color-swatch" data-accent="#f59e0b" aria-label="Amber" aria-pressed="false" style="--swatch:#f59e0b"></button>
+              <button type="button" class="color-swatch" data-accent="#f43f5e" aria-label="Rose" aria-pressed="false" style="--swatch:#f43f5e"></button>
+            </div>
+            <label class="custom-accent" for="custom-accent">Custom <span id="accent-value">#9B6DFF</span><input id="custom-accent" type="color" value="#9b6dff" aria-label="Custom accent color"></label>
+          </div>
+        </details>
+      </div>
     </div>
   </header>
 
-  <!-- Main Swap Workspace -->
-  <main class="container">
+  <main class="container" id="request-workspace">
     <div class="grid-layout">
       <!-- Left: Swap / AI Query Card -->
-      <section class="card swap-card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <h2>Swap Satoshis for AI Compute</h2>
-            <p class="card-desc">Execute real queries with ChatGPT & Google Gemini via peer-to-peer BSV microtransactions.</p>
-          </div>
-          <div class="badge-defi">BSV Desktop 1-Click Pay</div>
-        </div>
-
-        <!-- Provider + model chosen in the marketplace -->
-        <div id="selected-provider" class="selected-provider">
-          <span id="selected-provider-text">Henüz provider seçmediniz.</span>
-          <a href="/market.html" id="selected-provider-link">Pazaryerine git →</a>
-        </div>
-
-        <!-- Token Pair Selector -->
-        <div class="swap-tokens-wrapper">
-          <div class="token-row">
-            <div class="token-label">YOU PAY</div>
-            <div class="token-select-box">
-              <span class="crypto-icon">₿</span>
-              <span class="crypto-name">BSV (Satoshis)</span>
-            </div>
-            <div class="token-amount" id="display-fee-sats">500 Sats</div>
-          </div>
-
-          <div class="swap-arrow-divider">
-            <div class="arrow-circle">↓</div>
-          </div>
-
-          <div class="token-row">
-            <div class="token-label">YOU RECEIVE</div>
-            <div class="token-select-box">
-              <span class="crypto-icon" id="ai-icon">✨</span>
-              <select id="model-select" class="model-dropdown">
-                <optgroup label="🤖 OpenAI (ChatGPT)">
-                  <option value="gpt-4o" selected>ChatGPT GPT-4o (OpenAI)</option>
-                  <option value="gpt-4o-mini">ChatGPT GPT-4o Mini (Hızlı & Ekonomik)</option>
-                </optgroup>
-                <optgroup label="✨ Google Gemini">
-                  <option value="gemini-3.5-flash">Gemini 3.5 Flash (Ultra Fast)</option>
-                  <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
-                  <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                </optgroup>
-              </select>
-            </div>
-            <div class="token-amount usd-est" id="display-fee-usd">~$0.00025 USD</div>
-          </div>
-        </div>
-
-        <!-- Prompt Input -->
-        <div class="input-group">
-          <label for="prompt-input">Your Question / Prompt for AI (ChatGPT / Gemini)</label>
-          <textarea id="prompt-input" rows="4" placeholder="Ask anything... (e.g. 'Explain quantum computing in 3 bullet points' or 'Write a smart contract outline')">Explain how BSV microtransactions enable pay-per-token AI inference without subscription lock-in.</textarea>
-        </div>
-
-        <!-- Token Budget (output cap paid up-front) -->
-        <div class="input-group">
-          <label for="max-output-select">Maksimum Cevap Uzunluğu (output token)</label>
-          <select id="max-output-select" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff; font-size:0.85rem;">
-            <option value="256">256 token (kısa)</option>
-            <option value="512">512 token</option>
-            <option value="1024" selected>1024 token (varsayılan)</option>
-            <option value="2048">2048 token</option>
-            <option value="4096">4096 token (uzun)</option>
-          </select>
-          <div id="quote-breakdown" style="font-size:0.75rem; color:#9ca3af; margin-top:6px;">Fiyat hesaplanıyor...</div>
-        </div>
-
-        <!-- TokenChannel: smart contract payment channel (pay per streamed chunk) -->
-        <div id="channel-panel" class="input-group" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 14px; border-radius: 12px; margin-top: 16px;">
-          <label style="margin:0 0 4px; color:#a7f3d0; font-weight:600;">🔒 Token Kanalı (Smart Contract)</label>
-          <div style="font-size:0.75rem; color:#9ca3af; margin-bottom:10px;">Bir kez para kilitleyin, sonra sadece okuduğunuz token kadar ödeyin. Kalan para kanal kapanınca cüzdanınıza döner.</div>
-          <div id="channel-closed-view" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <input type="number" id="channel-deposit" value="5000" min="100" step="100" style="width:120px; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff;">
-            <span style="color:#9ca3af; font-size:0.8rem;">sats</span>
-            <button type="button" id="btn-channel-open" class="btn-copy" style="padding:8px 12px; border-radius:8px; cursor:pointer;">Kanal Aç (BSV Desktop'ta 1 onay)</button>
-          </div>
-          <div id="channel-open-view" class="hidden">
-            <div id="channel-status" style="font-size:0.8rem; color:#d1fae5;"></div>
-            <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-              <button type="button" id="btn-channel-ask" class="btn btn-primary" style="flex:1; min-width:180px;"><span>⚡ Kanalla Sor</span></button>
-              <button type="button" id="btn-channel-stop" class="btn-copy hidden" style="padding:8px 12px; border-radius:8px; cursor:pointer;">⏹ Durdur</button>
-              <button type="button" id="btn-channel-close" class="btn-copy" style="padding:8px 12px; border-radius:8px; cursor:pointer;">Kanalı Kapat &amp; Kalanı Geri Al</button>
+      <div class="primary-column">
+        <section class="card swap-card">
+          <div class="card-header">
+            <div>
+              <h2>Ask AI</h2>
+              <p class="card-desc">Run queries on OpenAI and Google Gemini models via peer-to-peer BSV micropayments.</p>
             </div>
           </div>
-          <div id="channel-message" style="font-size:0.75rem; color:#9ca3af; margin-top:8px;"></div>
-          <div id="channel-locked-list" style="margin-top:10px;"></div>
-        </div>
 
-        <!-- Result / AI Answer Card -->
-        <div id="result-card" class="result-box hidden">
-          <div class="result-header">
-            <div class="result-title">
-              <span class="sparkle" id="result-icon">✨</span> <span id="result-model-label">AI Cevabı</span>
+          <div class="card-body">
+            <!-- Provider + model chosen in the marketplace -->
+            <div id="selected-provider" class="selected-provider">
+              <span id="selected-provider-text">No provider selected yet.</span>
+              <a href="/market.html" id="selected-provider-link">Go to Marketplace →</a>
             </div>
-            <div class="tx-receipt-link">
-              <span class="verified-icon">✔ Blokzincir Onaylı (0-Conf):</span>
-              <a id="tx-explorer-link" href="#" target="_blank" rel="noopener">WhatsOnChain'de Görüntüle ↗</a>
+
+            <!-- Token Pair Selector -->
+            <div class="swap-tokens-wrapper">
+              <div class="token-row pay-row">
+                <div class="token-label">Estimated Max Cost</div>
+                <div class="price-line">
+                  <div class="token-amount" id="display-fee-sats">500 Sats</div>
+                </div>
+                <div class="payment-equivalent">
+                  <span>BSV (Satoshis)</span>
+                  <span class="token-amount usd-est" id="display-fee-usd">~$0.00025 USD</span>
+                </div>
+              </div>
+
+              <div class="swap-arrow-divider" aria-hidden="true">
+                <div class="arrow-circle">↓</div>
+              </div>
+
+              <div class="token-row receive-row">
+                <div class="token-label">Model</div>
+                <div class="token-select-box">
+                  <span class="crypto-icon" id="ai-icon">✨</span>
+                  <select id="model-select" class="model-dropdown" aria-label="Select AI model">
+                    <optgroup label="OpenAI (ChatGPT)">
+                      <option value="gpt-4o" selected>ChatGPT GPT-4o (OpenAI)</option>
+                      <option value="gpt-4o-mini">ChatGPT GPT-4o Mini (Fast &amp; Economical)</option>
+                    </optgroup>
+                    <optgroup label="Google Gemini">
+                      <option value="gemini-3.5-flash">Gemini 3.5 Flash (Ultra Fast)</option>
+                      <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                      <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div class="payment-equivalent">
+                  <span>Pay per streamed chunk</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prompt Input -->
+            <div class="input-group prompt-group">
+              <div class="field-heading">
+                <label for="prompt-input">Prompt</label>
+              </div>
+              <textarea id="prompt-input" rows="4" placeholder="Enter your prompt...">Explain how BSV microtransactions enable pay-per-token AI inference without subscription lock-in.</textarea>
+            </div>
+
+            <!-- Token Budget (output cap paid up-front) -->
+            <div class="input-group estimate-panel">
+              <div class="request-settings">
+                <label for="max-output-select">Max Output Length (tokens)</label>
+                <select id="max-output-select">
+                  <option value="256">256 tokens (short)</option>
+                  <option value="512">512 tokens</option>
+                  <option value="1024" selected>1024 tokens (default)</option>
+                  <option value="2048">2048 tokens</option>
+                  <option value="4096">4096 tokens (long)</option>
+                </select>
+              </div>
+              <div id="quote-breakdown" class="quote-breakdown" aria-live="polite">Calculating price...</div>
+            </div>
+
+            <!-- TokenChannel: smart contract payment channel (pay per streamed chunk) -->
+            <div id="channel-panel" class="channel-panel">
+              <div class="channel-heading">
+                <div>
+                  <label class="field-label" for="channel-deposit">Token Channel (Smart Contract)</label>
+                  <div class="card-desc">Lock funds once and pay only for the tokens you receive. Unused balance is returned to your wallet when the channel closes.</div>
+                </div>
+              </div>
+
+              <div id="channel-closed-view" class="channel-deposit-row">
+                <div class="amount-input">
+                  <input type="number" id="channel-deposit" value="5000" min="100" step="100">
+                  <span>sats</span>
+                </div>
+                <button type="button" id="btn-channel-open" class="btn btn-primary channel-open-btn">
+                  Open Channel (1 approval in BSV Desktop)
+                </button>
+              </div>
+
+              <div id="channel-open-view" class="hidden">
+                <div id="channel-status" class="channel-status"></div>
+                <div class="channel-actions">
+                  <button type="button" id="btn-channel-ask" class="btn btn-primary">
+                    <span>Ask with Channel</span>
+                  </button>
+                  <button type="button" id="btn-channel-stop" class="button button-secondary hidden">Stop</button>
+                  <button type="button" id="btn-channel-close" class="button button-quiet">Close Channel &amp; Claim Refund</button>
+                </div>
+              </div>
+
+              <div id="channel-message" class="channel-message" role="status" aria-live="polite"></div>
+              <div id="channel-locked-list"></div>
+            </div>
+
+            <!-- Result / AI Answer Card -->
+            <div id="result-card" class="result-box hidden">
+              <div class="result-header">
+                <div class="result-title">
+                  <span id="result-icon">✨</span>
+                  <span id="result-model-label">AI Response</span>
+                </div>
+                <div class="tx-receipt-link">
+                  <span class="verified-icon">On-Chain Verified (0-Conf):</span>
+                  <a id="tx-explorer-link" href="#" target="_blank" rel="noopener">View on WhatsOnChain ↗</a>
+                </div>
+              </div>
+              <div id="ai-answer-content" class="ai-text markdown answer-scroll" tabindex="0" role="region" aria-label="Generated response"></div>
+              <div id="token-usage-summary" class="usage-summary"></div>
             </div>
           </div>
-          <div id="ai-answer-content" class="ai-text markdown"></div>
-          <div id="token-usage-summary" style="font-size:0.75rem; color:#9ca3af; margin-top:10px;"></div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <!-- Right: Network Providers & Live Transaction Stream -->
-      <aside class="sidebar">
+      <aside class="sidebar" aria-label="Network status and recent transactions">
         <!-- Active Providers Card -->
         <div class="card sidebar-card">
           <div class="card-header small">
-            <h3>Active AI Provider Nodes</h3>
+            <h3>Active Providers</h3>
             <span class="live-dot-container"><span class="dot green"></span> Live</span>
           </div>
           <div id="providers-list" class="provider-nodes-list">
@@ -167,22 +213,22 @@
         <!-- Deposits locked in TokenChannel contracts (from the gateway's channel records) -->
         <div class="card sidebar-card">
           <div class="card-header small">
-            <h3>🔐 Kontratta Kilitli Para</h3>
-            <a href="/locked.html" class="refresh-indicator" style="text-decoration:none;"><span id="gateway-locked-total">0 sats</span> · Detaylar ↗</a>
+            <h3>Locked in Contracts</h3>
+            <a href="/locked.html" class="refresh-indicator"><span id="gateway-locked-total">0 sats</span> · Details ↗</a>
           </div>
           <div id="gateway-locked-funds" class="swaps-list">
-            <div class="empty-state">Kontratta kilitli para yok.</div>
+            <div class="empty-state">No funds currently locked in contracts.</div>
           </div>
         </div>
 
         <!-- Live On-Chain Swaps Ticker -->
         <div class="card sidebar-card">
           <div class="card-header small">
-            <h3>Recent Swaps (WhatsOnChain)</h3>
-            <span class="refresh-indicator">Auto-refresh</span>
+            <h3>Recent Swaps</h3>
+            <span class="refresh-indicator">WhatsOnChain</span>
           </div>
           <div id="swaps-history" class="swaps-list">
-            <div class="empty-state">No swaps yet. Be the first to swap!</div>
+            <div class="empty-state">No swaps yet.</div>
           </div>
         </div>
       </aside>
@@ -198,5 +244,6 @@
   <script src="session.js"></script>
   <script src="app.js"></script>
   <script src="channelUi.js"></script>
+  <script src="theme.js"></script>
 </body>
 </html>

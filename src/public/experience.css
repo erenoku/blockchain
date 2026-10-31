@@ -1,0 +1,49 @@
+/* Theme variables, accent color picker, and workspace refinements. */
+:root {
+  --accent-rgb: 155, 109, 255;
+  --accent: #b89aff;
+  --accent-strong: #9b6dff;
+  --accent-soft: rgba(155, 109, 255, .14);
+  --button-ink: #ffffff;
+}
+.experience {
+  --bg: #0e0d12;
+  --bg-card: #15131c;
+  --bg-input: #100e16;
+  --bg-raised: #1d1a27;
+  --border: #272333;
+  --border-soft: #1e1b28;
+  --text-main: #f1eff7;
+  --text-muted: #9d96ab;
+  --text-faint: #746d82;
+  background-color: var(--bg);
+  font-size: 13px;
+}
+
+/* Color choices are kept in the browser, never in wallet or provider config. */
+.palette-menu { position: relative; flex-shrink: 0; font-size: 12px; }
+.palette-menu > summary { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; color: var(--text-muted); list-style: none; padding: 5px 10px; border: 1px solid var(--border-soft); border-radius: 7px; background: var(--bg-input); transition: color .12s, background .12s, border-color .12s; user-select: none; }
+.palette-menu > summary:hover, .palette-menu[open] > summary { color: var(--text-main); background: var(--bg-raised); border-color: var(--accent-strong); }
+.palette-menu > summary::-webkit-details-marker { display: none; }
+.accent-preview { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-strong); box-shadow: 0 0 0 2px rgba(var(--accent-rgb), .25); flex-shrink: 0; }
+.palette-popover { position: absolute; right: 0; top: calc(100% + 8px); z-index: 80; width: 236px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-top: 2px solid var(--accent-strong); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .55); }
+.palette-popover > strong { font-size: 12px; color: var(--text-main); font-weight: 600; display: block; }
+.palette-popover > p { margin-top: 3px; font-size: 11px; color: var(--text-muted); }
+.palette-options { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; }
+.color-swatch { width: 28px; height: 28px; padding: 0; border: 2px solid var(--bg-card); outline: 1px solid var(--border); background: var(--swatch, var(--accent-strong)); border-radius: 50%; transition: transform .12s, outline-color .12s; }
+.color-swatch:hover { transform: scale(1.08); outline-color: var(--text-muted); }
+.color-swatch[data-accent="#9b6dff"] { background-color: #9b6dff; }
+.color-swatch[data-accent="#10b981"] { background-color: #10b981; }
+.color-swatch[data-accent="#38bdf8"] { background-color: #38bdf8; }
+.color-swatch[data-accent="#f59e0b"] { background-color: #f59e0b; }
+.color-swatch[data-accent="#f43f5e"] { background-color: #f43f5e; }
+.color-swatch[aria-pressed="true"] { outline: 2px solid var(--text-main); transform: scale(1.08); }
+.custom-accent { display: flex; gap: 8px; align-items: center; color: var(--text-muted); border-top: 1px solid var(--border-soft); padding-top: 10px; font-size: 11px; cursor: pointer; }
+.custom-accent > span { margin-left: auto; color: var(--accent); font-family: var(--font-mono); font-size: 11px; font-weight: 500; }
+.custom-accent input[type="color"] { width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 5px; padding: 0; background: transparent; cursor: pointer; flex-shrink: 0; }
+
+/* Workspace panels */
+.workspace-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 0 0 18px; flex-wrap: wrap; }
+.workspace-heading h1, .workspace-heading h2 { font-size: 20px; font-weight: 600; letter-spacing: -.4px; margin: 0; }
+.estimate-panel { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-input); padding: 12px 14px; }
+.experience .answer-scroll { max-height: 52vh; min-height: 100px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 14px 16px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--bg-card); font-size: 13px; line-height: 1.75; color: var(--text-main); scrollbar-width: thin; scrollbar-color: var(--accent-strong) var(--bg-card); }

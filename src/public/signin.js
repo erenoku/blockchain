@@ -1,12 +1,20 @@
 /**
- * Sign-in page: BSV Desktop signs a one-time challenge, then the user picks a role.
+ * Sign-in and start page: BSV Desktop signs a one-time challenge, then the user picks a role.
+ * Also hydrates live network metrics and marketplace rates from public gateway endpoints.
  */
 (function () {
   const el = (id) => document.getElementById(id);
   const next = new URLSearchParams(location.search).get('next');
 
+  function esc(str) {
+    return String(str ?? '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
   function message(id, text, color = 'var(--text-muted)') {
-    el(id).innerHTML = `<span style="color:${color}">${text}</span>`;
+    const node = el(id);
+    if (node) node.innerHTML = `<span style="color:${color}">${text}</span>`;
   }
 
   function homeFor(user) {
@@ -29,11 +37,11 @@
     const btn = el('btn-signin');
     btn.disabled = true;
     try {
-      message('signin-message', 'BSV Desktop kimliği alınıyor...');
+      message('signin-message', 'Reading BSV Desktop identity...');
       const { publicKey: identityKey } = await Session.wallet('getPublicKey', { identityKey: true });
       const challenge = await Session.api('/api/auth/challenge', { method: 'POST', body: '{}' });
 
-      message('signin-message', 'BSV Desktop\'ta giriş isteğini onaylayın...');
+      message('signin-message', 'Approve the sign-in request in BSV Desktop...');
       const focusTimer = setTimeout(() => fetch('/api/focus-wallet', { method: 'POST' }).catch(() => {}), 400);
       let signed;
       try {
@@ -71,6 +79,75 @@
   });
 
   el('btn-signin').addEventListener('click', signIn);
+
+  document.querySelectorAll('[data-trigger-signin]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const signinSection = el('step-signin');
+      if (signinSection && !signinSection.classList.contains('hidden')) {
+        signinSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        signIn();
+      } else {
+        el('step-role')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  });
+
+  async function hydratePublicNetworkData() {
+    try {
+      const status = await Session.api('/api/status');
+      if (el('landing-network') && status.network) {
+        el('landing-network').textContent = `BSV ${String(status.network).toUpperCase()}`;
+      }
+      if (el('landing-providers')) {
+        el('landing-providers').textContent = String(status.activeProviders ?? 0);
+      }
+      if (el('landing-sats')) {
+        el('landing-sats').textContent = `${Number(status.totalSatsSwapped || 0).toLocaleString('en-US')} sats`;
+      }
+    } catch (_) {}
+
+    const tbody = el('landing-market-rows');
+    if (!tbody) return;
+    try {
+      const market = await Session.api('/api/market');
+      const providers = Array.isArray(market.providers) ? market.providers : [];
+      if (!providers.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="muted">
+              No provider nodes are online right now. Sign in with BSV Desktop to register the first OpenAI or Google Gemini provider node.
+            </td>
+          </tr>`;
+        return;
+      }
+      tbody.innerHTML = providers.map(p => {
+        const models = (p.models || []).map(m => `<span class="model-pill">${esc(m)}</span>`).join('');
+        const statusHtml = p.available
+          ? '<span class="status-pill ok">Live</span>'
+          : '<span class="status-pill off">Offline</span>';
+        const latency = p.stats && p.stats.avgLatencyMs
+          ? `${p.stats.avgLatencyMs} ms`
+          : '—';
+        return `
+          <tr>
+            <td><strong>${esc(p.name)}</strong></td>
+            <td>${statusHtml}</td>
+            <td><div class="model-pill-list">${models}</div></td>
+            <td class="num">${Number(p.pricing?.inputPer1k ?? 0).toLocaleString('en-US')} sats</td>
+            <td class="num">${Number(p.pricing?.outputPer1k ?? 0).toLocaleString('en-US')} sats</td>
+            <td class="num">${Number(p.pricing?.minSats ?? 0).toLocaleString('en-US')} sats</td>
+            <td class="num">${esc(latency)}</td>
+          </tr>`;
+      }).join('');
+    } catch (_) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="muted">Connect BSV Desktop to view active marketplace providers.</td>
+        </tr>`;
+    }
+  }
+
+  hydratePublicNetworkData();
 
   // Already signed in: skip straight to the role step or home
   Session.me().then(user => { if (user) afterLogin(user); }).catch(() => {});

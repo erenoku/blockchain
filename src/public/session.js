@@ -27,7 +27,7 @@
       return await api(`${WALLET_URL}/${method}`, { method: 'POST', body: JSON.stringify(args) });
     } catch (err) {
       if (err instanceof TypeError || /Failed to fetch/i.test(err.message)) {
-        throw new Error('BSV Desktop\'a ulaşılamadı. Uygulamanın açık olduğundan emin olun.');
+        throw new Error('Could not reach BSV Desktop. Make sure the application is running.');
       }
       throw err;
     }
@@ -67,10 +67,10 @@
     const bar = document.querySelector('.nav-metrics');
     if (!bar || bar.querySelector('.session-nav')) return;
     const links = [
-      ['/market.html', 'Pazaryeri'],
-      ['/', 'Soru Sor'],
-      user.isProvider ? ['/provider.html', 'Provider Paneli'] : null,
-      ['/locked.html', 'Kilitli Para']
+      ['/market.html', 'Marketplace'],
+      ['/', 'Ask AI'],
+      user.isProvider ? ['/provider.html', 'Provider Console'] : null,
+      ['/locked.html', 'Locked Funds']
     ].filter(Boolean);
     const nav = document.createElement('div');
     nav.className = 'session-nav';
@@ -78,7 +78,7 @@
       `<a class="metric-pill nav-link${location.pathname === href ? ' active' : ''}" href="${href}">${label}</a>`
     ).join('') +
       `<span class="metric-pill" title="${user.identityKey}"><span class="dot green"></span>${shortKey(user.identityKey)}</span>` +
-      '<button type="button" class="metric-pill nav-link" id="btn-logout">Çıkış</button>';
+      '<button type="button" class="metric-pill nav-link" id="btn-logout">Sign out</button>';
     bar.appendChild(nav);
     nav.querySelector('#btn-logout').addEventListener('click', logout);
   }

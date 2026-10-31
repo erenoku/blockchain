@@ -1,127 +1,171 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Provider Paneli | BSV AI Swap</title>
+  <meta name="theme-color" content="#0e0d12">
+  <title>Provider Console | BSV AI Swap</title>
+  <link rel="icon" href="brand.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="experience.css">
+  <link rel="stylesheet" href="site.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="experience provider-page">
+  <a class="skip-link" href="#provider-main">Skip to content</a>
+
   <header class="navbar">
-    <div class="nav-brand">
-      <div class="logo-icon">⚡</div>
-      <div class="logo-text">
-        <span class="brand-title">BSV AI SWAP</span>
-        <span class="brand-subtitle">Provider Paneli</span>
+    <div class="nav-inner">
+      <a class="nav-brand" href="/" aria-label="BSV AI Swap home">
+        <svg class="logo-icon" width="28" height="28" viewBox="0 0 36 36" aria-hidden="true">
+          <rect x="1.5" y="1.5" width="33" height="33" rx="8.5" fill="#13101c" stroke="var(--accent-strong)" stroke-opacity=".55" stroke-width="1.5"/>
+          <path d="M19.5 7.5 10.5 19.5h7l-1 9 9-12h-7l1-9Z" fill="var(--accent-strong)" stroke="var(--accent)" stroke-width="1" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand-title">bsv<span class="brand-light">ai</span><span class="brand-divider">/</span><span class="brand-product">swap</span></span>
+      </a>
+      <div class="nav-metrics">
+        <details class="palette-menu" id="accent-menu">
+          <summary aria-label="Choose accent color"><span class="accent-preview"></span><span>Accent</span></summary>
+          <div class="palette-popover">
+            <strong>Accent color</strong>
+            <p>Choose an interface accent.</p>
+            <div class="palette-options" role="group" aria-label="Accent presets">
+              <button type="button" class="color-swatch" data-accent="#9b6dff" aria-label="Violet" aria-pressed="true" style="--swatch:#9b6dff"></button>
+              <button type="button" class="color-swatch" data-accent="#10b981" aria-label="Emerald" aria-pressed="false" style="--swatch:#10b981"></button>
+              <button type="button" class="color-swatch" data-accent="#38bdf8" aria-label="Sky" aria-pressed="false" style="--swatch:#38bdf8"></button>
+              <button type="button" class="color-swatch" data-accent="#f59e0b" aria-label="Amber" aria-pressed="false" style="--swatch:#f59e0b"></button>
+              <button type="button" class="color-swatch" data-accent="#f43f5e" aria-label="Rose" aria-pressed="false" style="--swatch:#f43f5e"></button>
+            </div>
+            <label class="custom-accent" for="custom-accent">Custom <span id="accent-value">#9B6DFF</span><input id="custom-accent" type="color" value="#9b6dff" aria-label="Custom accent color"></label>
+          </div>
+        </details>
       </div>
     </div>
-    <div class="nav-metrics"></div>
   </header>
 
-  <main class="page">
-    <h1 class="page-title" id="page-title">Provider ol</h1>
-    <p class="page-sub" id="page-sub">API anahtarınızı ekleyin, sunacağınız modelleri ve fiyatınızı seçin. Customer'lar sizi pazaryerinde görür; her cevap için ödeme doğrudan cüzdanınıza gelir.</p>
+  <main class="page" id="provider-main">
+    <h1 class="page-title" id="page-title">Become a Provider</h1>
+    <p class="page-sub" id="page-sub">Add your API key, choose the models you want to offer, and set your pricing. Customers will see you in the marketplace and payments go directly to your wallet.</p>
 
     <!-- Status (existing providers) -->
     <section id="status-card" class="card hidden">
       <div class="card-header small">
-        <h3>Durum</h3>
-        <span id="status-pill" class="status-pill ok">Yayında</span>
+        <h3>Status</h3>
+        <span id="status-pill" class="status-pill ok">Live</span>
       </div>
-      <div id="status-text" class="hint"></div>
-      <div class="btn-row section-gap">
-        <button type="button" id="btn-toggle" class="btn-secondary">Yayından kaldır</button>
+      <div class="provider-section-body">
+        <div id="status-text" class="hint"></div>
+        <div class="btn-row">
+          <button type="button" id="btn-toggle" class="btn-secondary">Take offline</button>
+        </div>
       </div>
     </section>
 
     <form id="provider-form" class="form-grid section-gap" autocomplete="off">
-      <section class="card form-grid">
-        <div class="card-header small"><h3>Profil</h3></div>
-        <div class="field">
-          <label for="f-name">Görünen ad (pazaryerinde görünür)</label>
-          <input id="f-name" maxlength="60" placeholder="ör. Ankara GPU Node" required>
-        </div>
-      </section>
-
-      <section class="card form-grid">
-        <div class="card-header small"><h3>API anahtarları</h3></div>
-        <p class="hint">Anahtarlar sunucuda şifreli saklanır ve bir daha tarayıcıya gönderilmez; sadece son 4 hanesi görünür. Sorgular sizin anahtarınızla çalışır ve ücreti sizin API hesabınıza yansır.</p>
-        <div class="field" data-engine="openai">
-          <label for="key-openai">OpenAI API anahtarı</label>
-          <div class="btn-row">
-            <input id="key-openai" type="password" placeholder="sk-..." style="flex:1; min-width:200px;">
-            <button type="button" class="btn-secondary" data-test="openai">Test et</button>
-            <button type="button" class="btn-secondary hidden" data-remove="openai">Kaldır</button>
-          </div>
-          <div class="hint" id="key-status-openai"></div>
-        </div>
-        <div class="field" data-engine="gemini">
-          <label for="key-gemini">Google Gemini API anahtarı</label>
-          <div class="btn-row">
-            <input id="key-gemini" type="password" placeholder="AIza..." style="flex:1; min-width:200px;">
-            <button type="button" class="btn-secondary" data-test="gemini">Test et</button>
-            <button type="button" class="btn-secondary hidden" data-remove="gemini">Kaldır</button>
-          </div>
-          <div class="hint" id="key-status-gemini"></div>
-        </div>
-      </section>
-
-      <section class="card form-grid">
-        <div class="card-header small"><h3>Sunulan modeller</h3></div>
-        <div id="model-checks" class="model-checks"><span class="hint">Önce bir API anahtarını test edin.</span></div>
-      </section>
-
-      <section class="card form-grid">
-        <div class="card-header small"><h3>Ödeme adresi</h3></div>
-        <p class="hint">Customer'ların ödediği satoshiler kanal kapanınca buraya gönderilir. Değişiklik yeni açılan kanallarda geçerli olur.</p>
-        <label class="payout-option">
-          <input type="radio" name="payout-mode" value="identity" checked>
-          <span><b>Kimlik anahtarım (02/03)</b><br><span class="hint">Kanal kapanınca ödeme bu kimlik anahtarına gönderilir ve BSV Desktop'ın gelen ödemeler kutusuna (MessageBox) düşer; ek bir şey yapmanız gerekmez.</span></span>
-        </label>
-        <div class="field" id="payout-identity-field">
-          <label for="f-payout-identity">BSV Desktop kimlik anahtarı (02... veya 03..., 66 karakter)</label>
-          <input id="f-payout-identity" placeholder="02..." autocomplete="off" spellcheck="false" maxlength="66">
-          <div class="hint">Giriş yaptığınız cüzdanın anahtarı hazır gelir; başka bir cüzdana ödeme almak için onun anahtarını yazın.</div>
-        </div>
-        <label class="payout-option">
-          <input type="radio" name="payout-mode" value="wallet">
-          <span><b>BSV Desktop cüzdanım ("Cüzdana al" ile)</b><br><span class="hint">Giriş yaptığınız cüzdandan bir adres alınır; kazançları paneldeki "Cüzdana al" ile kendiniz aktarırsınız.</span></span>
-        </label>
-        <div class="hint" id="payout-current"></div>
-      </section>
-
-      <section class="card form-grid">
-        <div class="card-header small"><h3>Fiyat (satoshi)</h3></div>
-        <div class="field-row">
+      <section class="card">
+        <div class="card-header small"><h3>Profile</h3></div>
+        <div class="provider-section-body">
           <div class="field">
-            <label for="f-in">1000 girdi token başına</label>
-            <input id="f-in" type="number" min="0" step="1" value="100" required>
+            <label for="f-name">Display name (shown in the marketplace)</label>
+            <input id="f-name" maxlength="60" placeholder="e.g. Fast GPU Node" required>
           </div>
-          <div class="field">
-            <label for="f-out">1000 çıktı token başına</label>
-            <input id="f-out" type="number" min="0" step="1" value="400" required>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header small"><h3>API keys</h3></div>
+        <div class="provider-section-body">
+          <p class="hint">Keys are stored encrypted on the server and never sent back to the browser; only the last 4 characters are shown. Queries run using your key and are billed to your API account.</p>
+          <div class="field" data-engine="openai">
+            <label for="key-openai">OpenAI API key</label>
+            <div class="btn-row">
+              <input id="key-openai" type="password" placeholder="sk-..." style="flex:1; min-width:200px;">
+              <button type="button" class="btn-secondary" data-test="openai">Test</button>
+              <button type="button" class="btn-secondary hidden" data-remove="openai">Remove</button>
+            </div>
+            <div class="hint" id="key-status-openai"></div>
           </div>
-          <div class="field">
-            <label for="f-min">Soru başına en az</label>
-            <input id="f-min" type="number" min="0" step="1" value="50" required>
+          <div class="field" data-engine="gemini">
+            <label for="key-gemini">Google Gemini API key</label>
+            <div class="btn-row">
+              <input id="key-gemini" type="password" placeholder="AIza..." style="flex:1; min-width:200px;">
+              <button type="button" class="btn-secondary" data-test="gemini">Test</button>
+              <button type="button" class="btn-secondary hidden" data-remove="gemini">Remove</button>
+            </div>
+            <div class="hint" id="key-status-gemini"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header small"><h3>Offered models</h3></div>
+        <div class="provider-section-body">
+          <div id="model-checks" class="offer-models">
+            <span class="hint">Test an API key first.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header small"><h3>Payout address</h3></div>
+        <div class="provider-section-body">
+          <p class="hint">Satoshis paid by customers are sent here when a channel closes. Changes apply to newly opened channels.</p>
+          <label class="payout-option">
+            <input type="radio" name="payout-mode" value="identity" checked>
+            <span><b>My identity key (02/03)</b><br><span class="hint">When a channel closes, payment is sent to this identity key and arrives in BSV Desktop's incoming payments inbox (MessageBox) automatically.</span></span>
+          </label>
+          <div class="field" id="payout-identity-field">
+            <label for="f-payout-identity">BSV Desktop identity key (02... or 03..., 66 characters)</label>
+            <input id="f-payout-identity" placeholder="02..." autocomplete="off" spellcheck="false" maxlength="66">
+            <div class="hint">Pre-filled with your signed-in wallet's key; enter another wallet's identity key to receive payouts there.</div>
+          </div>
+          <label class="payout-option">
+            <input type="radio" name="payout-mode" value="wallet">
+            <span><b>My BSV Desktop wallet (via "Claim to wallet")</b><br><span class="hint">Derives an address from your signed-in wallet; you claim earnings manually using "Claim to wallet" in the dashboard below.</span></span>
+          </label>
+          <div class="hint" id="payout-current"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header small"><h3>Pricing (satoshis)</h3></div>
+        <div class="provider-section-body">
+          <div class="field-row">
+            <div class="field">
+              <label for="f-in">Per 1,000 input tokens</label>
+              <input id="f-in" type="number" min="0" step="1" value="100" required>
+            </div>
+            <div class="field">
+              <label for="f-out">Per 1,000 output tokens</label>
+              <input id="f-out" type="number" min="0" step="1" value="400" required>
+            </div>
+            <div class="field">
+              <label for="f-min">Minimum per query</label>
+              <input id="f-min" type="number" min="0" step="1" value="50" required>
+            </div>
           </div>
         </div>
       </section>
 
       <div class="btn-row">
-        <button type="submit" id="btn-save" class="btn btn-primary" style="width:auto; padding:12px 24px;"><span>Kaydet ve yayına al</span></button>
+        <button type="submit" id="btn-save" class="btn btn-primary" style="width:auto; padding:10px 20px;">
+          <span>Save and publish</span>
+        </button>
       </div>
       <div id="form-message" class="auth-message"></div>
     </form>
 
-    <!-- Earnings (Faz 5) -->
+    <!-- Earnings -->
     <section id="earnings-card" class="card section-gap hidden">
       <div class="card-header small">
-        <h3>Kazançlar</h3>
+        <h3>Earnings</h3>
         <span id="earnings-total" class="refresh-indicator"></span>
       </div>
-      <div id="earnings-list"></div>
+      <div class="provider-section-body">
+        <div id="earnings-list"></div>
+      </div>
     </section>
   </main>
 
@@ -130,5 +174,6 @@
   <script src="session.js"></script>
   <script src="providerEarnings.js"></script>
   <script src="provider.js"></script>
+  <script src="theme.js"></script>
 </body>
 </html>

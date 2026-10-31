@@ -1,50 +1,77 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pazaryeri | BSV AI Swap</title>
+  <meta name="theme-color" content="#0e0d12">
+  <title>Marketplace | BSV AI Swap</title>
+  <link rel="icon" href="brand.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="experience.css">
+  <link rel="stylesheet" href="site.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="experience market-page">
+  <a class="skip-link" href="#market-main">Skip to content</a>
+
   <header class="navbar">
-    <div class="nav-brand">
-      <div class="logo-icon">⚡</div>
-      <div class="logo-text">
-        <span class="brand-title">BSV AI SWAP</span>
-        <span class="brand-subtitle">Pazaryeri</span>
+    <div class="nav-inner">
+      <a class="nav-brand" href="/" aria-label="BSV AI Swap home">
+        <svg class="logo-icon" width="28" height="28" viewBox="0 0 36 36" aria-hidden="true">
+          <rect x="1.5" y="1.5" width="33" height="33" rx="8.5" fill="#13101c" stroke="var(--accent-strong)" stroke-opacity=".55" stroke-width="1.5"/>
+          <path d="M19.5 7.5 10.5 19.5h7l-1 9 9-12h-7l1-9Z" fill="var(--accent-strong)" stroke="var(--accent)" stroke-width="1" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand-title">bsv<span class="brand-light">ai</span><span class="brand-divider">/</span><span class="brand-product">swap</span></span>
+      </a>
+      <div class="nav-metrics">
+        <details class="palette-menu" id="accent-menu">
+          <summary aria-label="Choose accent color"><span class="accent-preview"></span><span>Accent</span></summary>
+          <div class="palette-popover">
+            <strong>Accent color</strong>
+            <p>Choose an interface accent.</p>
+            <div class="palette-options" role="group" aria-label="Accent presets">
+              <button type="button" class="color-swatch" data-accent="#9b6dff" aria-label="Violet" aria-pressed="true" style="--swatch:#9b6dff"></button>
+              <button type="button" class="color-swatch" data-accent="#10b981" aria-label="Emerald" aria-pressed="false" style="--swatch:#10b981"></button>
+              <button type="button" class="color-swatch" data-accent="#38bdf8" aria-label="Sky" aria-pressed="false" style="--swatch:#38bdf8"></button>
+              <button type="button" class="color-swatch" data-accent="#f59e0b" aria-label="Amber" aria-pressed="false" style="--swatch:#f59e0b"></button>
+              <button type="button" class="color-swatch" data-accent="#f43f5e" aria-label="Rose" aria-pressed="false" style="--swatch:#f43f5e"></button>
+            </div>
+            <label class="custom-accent" for="custom-accent">Custom <span id="accent-value">#9B6DFF</span><input id="custom-accent" type="color" value="#9b6dff" aria-label="Custom accent color"></label>
+          </div>
+        </details>
       </div>
     </div>
-    <div class="nav-metrics"></div>
   </header>
 
-  <main class="page">
-    <h1 class="page-title">Provider ve model seçin</h1>
-    <p class="page-sub">Fiyatlar 1000 token başına satoshidir. Seçtiğiniz provider ile bir ödeme kanalı açar, sadece okuduğunuz token kadar ödersiniz.</p>
+  <main class="page" id="market-main">
+    <h1 class="page-title">Choose a provider and model</h1>
+    <p class="page-sub">Prices are in satoshis per 1,000 tokens. Open a payment channel with your chosen provider and pay only for the tokens you read.</p>
 
     <div class="toolbar market-toolbar">
-      <div class="field" style="min-width:220px;">
+      <div class="field">
         <label for="filter-model">Model</label>
-        <select id="filter-model"><option value="">Tüm modeller</option></select>
+        <select id="filter-model"><option value="">All models</option></select>
       </div>
-      <div class="field" style="min-width:180px;">
-        <label for="sort-by">Sırala</label>
+      <div class="field">
+        <label for="sort-by">Sort by</label>
         <select id="sort-by">
-          <option value="output">Çıktı fiyatı (ucuz → pahalı)</option>
-          <option value="input">Girdi fiyatı (ucuz → pahalı)</option>
-          <option value="speed">Hız (hızlı → yavaş)</option>
+          <option value="output">Output price (low → high)</option>
+          <option value="input">Input price (low → high)</option>
+          <option value="speed">Speed (fast → slow)</option>
         </select>
       </div>
       <span id="market-updated" class="hint"></span>
     </div>
 
     <div id="provider-grid" class="provider-grid">
-      <div class="empty-state">Yükleniyor...</div>
+      <div class="empty-state">Loading...</div>
     </div>
   </main>
 
   <script src="session.js"></script>
   <script src="market.js"></script>
+  <script src="theme.js"></script>
 </body>
 </html>

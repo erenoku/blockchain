@@ -13,7 +13,7 @@ async function safeFetchJson(url, options = {}) {
   try {
     json = text ? JSON.parse(text) : {};
   } catch (_) {
-    throw new Error(`[HTTP ${res.status}] ${text.slice(0, 150) || res.statusText || 'Geçersiz yanıt'}`);
+    throw new Error(`[HTTP ${res.status}] ${text.slice(0, 150) || res.statusText || 'Invalid response'}`);
   }
   if (!res.ok) {
     throw new Error(json.message || json.description || json.error || `[HTTP ${res.status}] ${text.slice(0, 100)}`);
@@ -45,7 +45,7 @@ async function refreshState() {
         </div>
       `).join('');
     } else {
-      swapsContainer.innerHTML = '<div class="empty-state">Henüz swap yok. İlk swapı yapın!</div>';
+      swapsContainer.innerHTML = '<div class="empty-state">No swaps yet. Be the first to swap!</div>';
     }
   } catch (err) {
     // Silently ignore polling network errors when servers restart
@@ -76,7 +76,7 @@ async function refreshState() {
 
       }
     } else {
-      provContainer.innerHTML = '<div class="empty-state">Aktif provider bulunamadı. Provider node çalıştırın!</div>';
+      provContainer.innerHTML = '<div class="empty-state">No active providers found. Start a provider node!</div>';
     }
   } catch (err) {
     // Silently ignore polling network errors when servers restart
@@ -95,18 +95,18 @@ function getMaxOutputTokens() {
 function renderQuote(q) {
   document.getElementById('display-fee-sats').textContent = `${q.amountSats} Sats`;
   document.getElementById('display-fee-usd').textContent = `~$${q.estimatedUsd} USD`;
-  const source = q.tokenCountSource === 'gemini' ? 'Gemini tokenizer' : 'tahmini';
+  const source = q.tokenCountSource === 'gemini' ? 'Gemini tokenizer' : 'estimated';
   document.getElementById('quote-breakdown').textContent =
-    `Girdi: ${q.inputTokens} token (${source}) = ${q.inputSats} sats · ` +
-    `Çıktı tavanı: ${q.maxOutputTokens} token = ${q.outputSats} sats · ` +
-    `Toplam: ${q.amountSats} sats (min ${q.pricing.minSats})`;
+    `Input: ${q.inputTokens} tokens (${source}) = ${q.inputSats} sats · ` +
+    `Output cap: ${q.maxOutputTokens} tokens = ${q.outputSats} sats · ` +
+    `Total: ${q.amountSats} sats (min ${q.pricing.minSats})`;
 }
 
 async function updateQuote() {
   const prompt = document.getElementById('prompt-input').value.trim();
   const breakdown = document.getElementById('quote-breakdown');
   if (!prompt) {
-    breakdown.textContent = 'Fiyatı görmek için bir prompt yazın.';
+    breakdown.textContent = 'Enter a prompt to see the price estimate.';
     return;
   }
   try {
@@ -122,7 +122,7 @@ async function updateQuote() {
     lastQuote = q;
     renderQuote(q);
   } catch (err) {
-    breakdown.textContent = `Fiyat alınamadı: ${err.message}`;
+    breakdown.textContent = `Could not fetch quote: ${err.message}`;
   }
 }
 
@@ -157,14 +157,14 @@ function applySelection() {
   const text = document.getElementById('selected-provider-text');
   const link = document.getElementById('selected-provider-link');
   if (!sel) {
-    text.textContent = 'Henüz provider seçmediniz.';
-    link.textContent = 'Pazaryerine git →';
+    text.textContent = 'No provider selected yet.';
+    link.textContent = 'Go to Marketplace →';
     return;
   }
   text.innerHTML = '';
   text.append('Provider: ', Object.assign(document.createElement('b'), { textContent: sel.providerName }),
     ` · ${sel.pricing.inputPer1k}/${sel.pricing.outputPer1k} sats per 1K`);
-  link.textContent = 'Değiştir';
+  link.textContent = 'Change';
   // Only the chosen provider's models can be asked
   modelSelect.innerHTML = '';
   for (const m of sel.models) modelSelect.append(new Option(m, m, false, m === sel.model));

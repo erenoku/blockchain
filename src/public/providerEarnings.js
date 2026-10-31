@@ -9,28 +9,28 @@
   let provider = null;
   let user = null;
 
-  const STATUS = { OPEN: 'açık', CLOSED: 'kapandı', OPEN_FAILED: 'açılamadı', REFUNDED: 'iade edildi', PROPOSED: 'hazırlandı' };
+  const STATUS = { OPEN: 'open', CLOSED: 'closed', OPEN_FAILED: 'open failed', REFUNDED: 'refunded', PROPOSED: 'prepared' };
 
   function render() {
     const t = data.totals;
-    el('earnings-total').textContent = `Toplam ${t.earnedSats} sats · cüzdanda ${t.claimedSats} · bekleyen ${t.unclaimedSats} · açık kanallarda ${t.openSats}`;
+    el('earnings-total').textContent = `Total ${t.earnedSats} sats · claimed ${t.claimedSats} · unclaimed ${t.unclaimedSats} · in open channels ${t.openSats}`;
     const rows = data.channels;
     el('earnings-list').innerHTML = rows.length === 0
-      ? '<div class="empty-state">Henüz kanal yok. Customer\'lar sizi seçtikçe burada görünecek.</div>'
+      ? '<div class="empty-state">No channels yet. Channels will appear here as customers select you.</div>'
       : `<div class="table-wrap"><table class="earnings-table">
-          <thead><tr><th>Kanal</th><th>Model</th><th>Durum</th><th class="num">Kazanç</th><th></th></tr></thead>
+          <thead><tr><th>Channel</th><th>Model</th><th>Status</th><th class="num">Earned</th><th></th></tr></thead>
           <tbody>${rows.map(c => {
             let action = '';
             if (c.status === 'CLOSED' && c.settleTxid && c.paidSats > 0) {
               const d = c.payoutDelivery;
-              if (c.claimedAt) action = '<span class="status-pill ok">Cüzdanda</span>';
-              else if (c.payoutMode === 'identity' && d && d.delivered) action = '<span class="status-pill ok" title="BSV Desktop gelen ödemeler kutusuna gönderildi">BSV Desktop\'a gönderildi</span>';
+              if (c.claimedAt) action = '<span class="status-pill ok">In wallet</span>';
+              else if (c.payoutMode === 'identity' && d && d.delivered) action = '<span class="status-pill ok" title="Sent to BSV Desktop incoming payments inbox">Sent to BSV Desktop</span>';
               else if (c.payoutMode === 'identity') {
-                action = `<button type="button" class="btn-secondary" data-redeliver="${c.channelId}">${d ? 'Tekrar gönder' : 'Gönder'}</button> `;
-                if (c.settleTx && c.fundingBeefHex) action += `<button type="button" class="btn-secondary" data-claim="${c.channelId}">Cüzdana al</button>`;
+                action = `<button type="button" class="btn-secondary" data-redeliver="${c.channelId}">${d ? 'Resend' : 'Send'}</button> `;
+                if (c.settleTx && c.fundingBeefHex) action += `<button type="button" class="btn-secondary" data-claim="${c.channelId}">Claim to wallet</button>`;
               }
-              else if (c.settleTx && c.fundingBeefHex) action = `<button type="button" class="btn-secondary" data-claim="${c.channelId}">Cüzdana al</button>`;
-              else action = '<span class="hint" title="Bu kanal için gerekli işlem verisi yok">Otomatik alınamaz</span>';
+              else if (c.settleTx && c.fundingBeefHex) action = `<button type="button" class="btn-secondary" data-claim="${c.channelId}">Claim to wallet</button>`;
+              else action = '<span class="hint" title="Missing transaction data for this channel">Cannot claim automatically</span>';
             }
             return `<tr>
               <td title="${c.channelId}">${c.channelId.slice(0, 11)}…</td>
@@ -47,10 +47,10 @@
     const c = data.channels.find(x => x.channelId === channelId);
     const btn = document.querySelector(`[data-claim="${channelId}"]`);
     btn.disabled = true;
-    btn.textContent = 'BSV Desktop onayı bekleniyor...';
+    btn.textContent = 'Awaiting BSV Desktop approval...';
     try {
       const outputIndex = ChannelClient.findRefundOutput(c.settleTx, c.payout.address);
-      if (outputIndex < 0) throw new Error('Kapanış işleminde ödeme çıktınız bulunamadı.');
+      if (outputIndex < 0) throw new Error('Your payout output was not found in the closing transaction.');
       await Session.wallet('internalizeAction', {
         tx: ChannelClient.closingTxBeef(c.settleTx, bsv.Utils.toArray(c.fundingBeefHex, 'hex')),
         outputs: [{
@@ -69,8 +69,8 @@
       await refresh(provider, user);
     } catch (err) {
       btn.disabled = false;
-      btn.textContent = 'Cüzdana al';
-      alert(`Kazanç cüzdana alınamadı: ${err.message}`);
+      btn.textContent = 'Claim to wallet';
+      alert(`Could not claim earnings to wallet: ${err.message}`);
     }
   }
 
@@ -84,13 +84,13 @@
   async function redeliver(channelId) {
     const btn = document.querySelector(`[data-redeliver="${channelId}"]`);
     btn.disabled = true;
-    btn.textContent = 'Gönderiliyor...';
+    btn.textContent = 'Sending...';
     try {
       await Session.api(`/api/provider/earnings/${channelId}/redeliver`, { method: 'POST', body: '{}' });
       await refresh(provider, user);
     } catch (err) {
       btn.disabled = false;
-      btn.textContent = 'Tekrar gönder';
+      btn.textContent = 'Resend';
       alert(err.message);
     }
   }

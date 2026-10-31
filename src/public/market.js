@@ -14,16 +14,16 @@
   }
 
   function statusPill(p) {
-    if (p.available) return '<span class="status-pill ok">Çevrimiçi</span>';
-    if (p.status === 'error') return '<span class="status-pill error">Hizmet dışı</span>';
-    return '<span class="status-pill off">Çevrimdışı</span>';
+    if (p.available) return '<span class="status-pill ok">Online</span>';
+    if (p.status === 'error') return '<span class="status-pill error">Out of service</span>';
+    return '<span class="status-pill off">Offline</span>';
   }
 
   function statsLine(p) {
-    if (!p.stats) return p.hosted ? 'Henüz soru yanıtlamadı' : 'Kendi sunucusunda çalışan node';
-    const parts = [`24 saatte ${p.stats.queries24h} soru`];
-    if (p.stats.successRate !== null) parts.push(`%${Math.round(p.stats.successRate * 100)} başarı`);
-    if (p.stats.avgLatencyMs) parts.push(`ort. ${(p.stats.avgLatencyMs / 1000).toFixed(1)} sn`);
+    if (!p.stats) return p.hosted ? 'No queries answered yet' : 'Self-hosted provider node';
+    const parts = [`${p.stats.queries24h} queries in 24h`];
+    if (p.stats.successRate !== null) parts.push(`${Math.round(p.stats.successRate * 100)}% success`);
+    if (p.stats.avgLatencyMs) parts.push(`avg ${(p.stats.avgLatencyMs / 1000).toFixed(1)}s`);
     return parts.join(' · ');
   }
 
@@ -40,7 +40,7 @@
     });
 
     el('provider-grid').innerHTML = list.length === 0
-      ? `<div class="empty-state">${model ? 'Bu modeli sunan provider yok.' : 'Henüz provider yok.'}</div>`
+      ? `<div class="empty-state">${model ? 'No providers offer this model.' : 'No providers available yet.'}</div>`
       : list.map(p => `
         <article class="card provider-offer${current && current.providerId === p.id ? ' selected' : ''}">
           <div class="offer-head">
@@ -48,9 +48,9 @@
             ${statusPill(p)}
           </div>
           <div class="offer-prices">
-            <div><span class="hint">Girdi</span><b>${p.pricing.inputPer1k}</b></div>
-            <div><span class="hint">Çıktı</span><b>${p.pricing.outputPer1k}</b></div>
-            <div><span class="hint">En az</span><b>${p.pricing.minSats}</b></div>
+            <div><span class="hint">Input</span><b>${p.pricing.inputPer1k}</b></div>
+            <div><span class="hint">Output</span><b>${p.pricing.outputPer1k}</b></div>
+            <div><span class="hint">Min</span><b>${p.pricing.minSats}</b></div>
           </div>
           <div class="hint">${statsLine(p)}</div>
           <div class="offer-models">
@@ -75,9 +75,9 @@
     const models = [...new Set(providers.flatMap(p => p.models))].sort();
     const filter = el('filter-model');
     const keep = filter.value;
-    filter.innerHTML = '<option value="">Tüm modeller</option>' + models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+    filter.innerHTML = '<option value="">All models</option>' + models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
     filter.value = models.includes(keep) ? keep : '';
-    el('market-updated').textContent = `${providers.filter(p => p.available).length} provider çevrimiçi`;
+    el('market-updated').textContent = `${providers.filter(p => p.available).length} providers online`;
     render();
   }
 
