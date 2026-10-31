@@ -1,4 +1,5 @@
 const path = require('path');
+const initialEnv = { ...process.env };
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const express = require('express');
 const GeminiService = require('./gemini');
@@ -24,14 +25,46 @@ class ProviderAgent {
     this.geminiApiKey = options.apiKey ?? process.env.GEMINI_API_KEY ?? '';
     this.openaiApiKey = options.openaiApiKey ?? process.env.OPENAI_API_KEY ?? '';
     this.openaiModel = options.openaiModel || process.env.OPENAI_MODEL || 'gpt-4o';
-    this.supportedModels = options.supportedModels || [
-      'gemini-3.5-flash',
-      'gemini-3.7-flash',
-      'gemini-3.8-flash',
-      'gemini-1.5-pro',
-      'gpt-4o',
-      'gpt-4o-mini'
-    ];
+
+    if (Array.isArray(options.supportedModels)) {
+      this.supportedModels = options.supportedModels;
+    } else if (process.env.PROVIDER_MODELS || process.env.MODELS) {
+      const raw = process.env.PROVIDER_MODELS || process.env.MODELS;
+      this.supportedModels = raw.split(',').map(m => m.trim()).filter(Boolean);
+    } else {
+      const engine = (options.engine || process.env.ENGINE || process.env.PROVIDER_ENGINE || '').toLowerCase();
+      if (engine === 'gemini') {
+        this.supportedModels = [this.model];
+      } else if (engine === 'openai' || engine === 'chatgpt') {
+        const list = [this.openaiModel];
+        if (!list.includes('gpt-4o-mini')) list.push('gpt-4o-mini');
+        this.supportedModels = list;
+      } else {
+        // If caller passed a specific model on CLI or options, restrict to that engine
+        const cliGemini = !!(initialEnv.GEMINI_MODEL || options.model);
+        const cliOpenAI = !!(initialEnv.OPENAI_MODEL || options.openaiModel);
+
+        if (cliGemini && !cliOpenAI) {
+          this.supportedModels = [this.model];
+        } else if (cliOpenAI && !cliGemini) {
+          const list = [this.openaiModel];
+          if (!list.includes('gpt-4o-mini')) list.push('gpt-4o-mini');
+          this.supportedModels = list;
+        } else {
+          const name = (this.name || '').toLowerCase();
+          const isGeminiName = name.includes('gemini') && !name.includes('openai') && !name.includes('chatgpt');
+          const isOpenAIName = (name.includes('openai') || name.includes('chatgpt')) && !name.includes('gemini');
+
+          const models = [];
+          if (!isOpenAIName && this.model) models.push(this.model);
+          if (!isGeminiName && (this.openaiApiKey || options.openaiApiKey)) {
+            models.push(this.openaiModel);
+            if (!models.includes('gpt-4o-mini')) models.push('gpt-4o-mini');
+          }
+          this.supportedModels = models.length > 0 ? Array.from(new Set(models)) : [this.model];
+        }
+      }
+    }
     this.gatewayUrl = options.gatewayUrl || process.env.GATEWAY_URL || 'http://localhost:3000';
     this.port = parseInt(options.port || process.env.PROVIDER_PORT || '4001', 10);
 

@@ -23,7 +23,6 @@
     if (!p.stats) return p.hosted ? 'No queries answered yet' : 'Self-hosted provider node';
     const parts = [`${p.stats.queries24h} queries in 24h`];
     if (p.stats.successRate !== null) parts.push(`${Math.round(p.stats.successRate * 100)}% success`);
-    if (p.stats.avgLatencyMs) parts.push(`avg ${(p.stats.avgLatencyMs / 1000).toFixed(1)}s`);
     return parts.join(' · ');
   }
 
@@ -35,7 +34,6 @@
     list = list.slice().sort((a, b) => {
       if (a.available !== b.available) return a.available ? -1 : 1;
       if (sort === 'input') return a.pricing.inputPer1k - b.pricing.inputPer1k;
-      if (sort === 'speed') return (a.stats?.avgLatencyMs ?? Infinity) - (b.stats?.avgLatencyMs ?? Infinity);
       return a.pricing.outputPer1k - b.pricing.outputPer1k;
     });
 

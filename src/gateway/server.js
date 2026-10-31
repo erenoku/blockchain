@@ -1,4 +1,5 @@
 require('dotenv').config();
+const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
 const express = require('express');
@@ -107,7 +108,58 @@ async function deliverPeerPayFromNode({ recipientIdentityKey, derivationPrefix, 
 
 // Accounts, providers and channel records live in SQLite under DATA_DIR
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../../data');
-const db = openDb(process.env.DB_PATH || path.join(DATA_DIR, 'app.db'));
+const dbPath = process.env.DB_PATH || path.join(DATA_DIR, 'app.db');
+
+// In demo mode (default unless PERSIST_DB=true), reset databases, sessions and channels on every server restart
+if (process.env.PERSIST_DB !== 'true') {
+  try {
+    if (dbPath && dbPath !== ':memory:') {
+      for (const suffix of ['', '-wal', '-shm']) {
+        const p = dbPath + suffix;
+        if (fs.existsSync(p)) {
+          try { fs.unlinkSync(p); } catch (_) {}
+        }
+      }
+    }
+    const cleanDir = (dir) => {
+      if (fs.existsSync(dir)) {
+        for (const file of fs.readdirSync(dir)) {
+          if (file.endsWith('.json')) {
+            try { fs.unlinkSync(path.join(dir, file)); } catch (_) {}
+          }
+        }
+      }
+    };
+    cleanDir(path.join(DATA_DIR, 'hosted'));
+    cleanDir(path.join(DATA_DIR, 'accounts'));
+
+    if (fs.existsSync(DATA_DIR)) {
+      for (const file of fs.readdirSync(DATA_DIR)) {
+        if (file.startsWith('provider-channels-') || file.startsWith('gateway-channels')) {
+          try { fs.unlinkSync(path.join(DATA_DIR, file)); } catch (_) {}
+        }
+      }
+    }
+    console.log('[Gateway Demo Mode] Cleaned database, sessions, and channel state for fresh start.');
+  } catch (err) {
+    console.warn('[Gateway Demo Mode] Warning while resetting state:', err.message);
+  }
+}
+
+const db = openDb(dbPath);
+
+// Ensure all tables are completely empty on start if files were held open
+if (process.env.PERSIST_DB !== 'true') {
+  try {
+    db.exec('PRAGMA foreign_keys = OFF;');
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
+    for (const { name } of tables) {
+      db.exec(`DELETE FROM "${name}";`);
+    }
+    db.exec('PRAGMA foreign_keys = ON;');
+  } catch (_) {}
+}
+
 const secrets = new SecretBox(loadMasterKey({ devKeyPath: path.join(DATA_DIR, 'master.key') }));
 const auth = createAuth({ db, secureCookies: config.COOKIE_SECURE });
 // BRC-29 sender for payouts to providers' identity keys

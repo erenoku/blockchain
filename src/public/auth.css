@@ -430,7 +430,36 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text-main);
-  margin: 0 0 6px;
+  margin: 0 0 10px;
+}
+.auth-role-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  margin-bottom: 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.role-tab {
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.role-tab:hover {
+  color: var(--text-main);
+}
+.role-tab.active {
+  background: var(--bg-raised);
+  border-color: var(--border);
+  color: var(--text-main);
+  font-weight: 600;
 }
 .auth-card .card-desc {
   font-size: 12px;

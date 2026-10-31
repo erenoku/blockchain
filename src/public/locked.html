@@ -18,13 +18,21 @@
 
   <header class="navbar">
     <div class="nav-inner">
-      <a class="nav-brand" href="/" aria-label="BSV AI Swap home">
-        <svg class="logo-icon" width="28" height="28" viewBox="0 0 36 36" aria-hidden="true">
-          <rect x="1.5" y="1.5" width="33" height="33" rx="8.5" fill="#13101c" stroke="var(--accent-strong)" stroke-opacity=".55" stroke-width="1.5"/>
-          <path d="M19.5 7.5 10.5 19.5h7l-1 9 9-12h-7l1-9Z" fill="var(--accent-strong)" stroke="var(--accent)" stroke-width="1" stroke-linejoin="round"/>
-        </svg>
-        <span class="brand-title">bsv<span class="brand-light">ai</span><span class="brand-divider">/</span><span class="brand-product">swap</span></span>
-      </a>
+      <div class="nav-left-group">
+        <a class="nav-brand" href="/" aria-label="BSV AI Swap home">
+          <svg class="logo-icon" width="28" height="28" viewBox="0 0 36 36" aria-hidden="true">
+            <rect x="1.5" y="1.5" width="33" height="33" rx="8.5" fill="#13101c" stroke="var(--accent-strong)" stroke-opacity=".55" stroke-width="1.5"/>
+            <path d="M19.5 7.5 10.5 19.5h7l-1 9 9-12h-7l1-9Z" fill="var(--accent-strong)" stroke="var(--accent)" stroke-width="1" stroke-linejoin="round"/>
+          </svg>
+          <span class="brand-title">bsv<span class="brand-light">ai</span><span class="brand-divider">/</span><span class="brand-product">swap</span></span>
+        </a>
+        <nav class="nav-segmented" id="primary-nav" aria-label="Primary navigation">
+          <a class="nav-tab" href="/">Ask AI</a>
+          <a class="nav-tab" href="/market.html">Marketplace</a>
+          <a class="nav-tab" href="/provider.html">Become a Provider</a>
+          <a class="nav-tab active" href="/locked.html">Locked Funds</a>
+        </nav>
+      </div>
       <div class="nav-metrics">
         <div class="metric-pill network-pill">
           <span class="dot green"></span>

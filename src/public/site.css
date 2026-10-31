@@ -1,14 +1,7 @@
 /* Shared navigation, marketplace, provider console, and form controls. */
 
-/* Session navigation injected by session.js into .nav-metrics */
-.session-nav { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 2px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; }
-.session-nav .metric-pill { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; border: 0; background: transparent; color: var(--text-muted); transition: color .1s, background .1s; }
-.session-nav .nav-link { cursor: pointer; text-decoration: none; }
-.session-nav .nav-link:hover { color: var(--text-main); background: var(--bg-raised); }
-.session-nav .nav-link.active { color: var(--text-main); background: var(--bg-raised); box-shadow: inset 0 0 0 1px var(--border); }
-.session-nav span.metric-pill { background: var(--bg-input); border: 1px solid var(--border-soft); border-radius: 4px; padding: 3px 8px; color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; margin-left: 2px; }
-.session-nav #btn-logout { color: var(--text-faint); }
-.session-nav #btn-logout:hover { color: var(--text-main); background: var(--bg-raised); }
+/* Session navigation fallback (handled by modern .nav-segmented & .nav-user-cluster) */
+.session-nav { display: none !important; }
 
 /* Selected provider bar on index.html */
 .selected-provider {
@@ -48,6 +41,13 @@
 .field-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .hint { font-size: 11px; color: var(--text-faint); line-height: 1.5; }
 
+.experience select option:disabled {
+  color: var(--text-faint);
+  opacity: 0.45;
+  background: var(--bg-input);
+  cursor: not-allowed;
+}
+
 /* Native customizable select picker for modern Chromium */
 @supports (appearance: base-select) {
   .experience select, .experience select::picker(select) { appearance: base-select; }
@@ -58,6 +58,7 @@
   .experience select option { background: transparent; color: var(--text-main); border: 1px solid transparent; border-radius: 4px; min-height: 30px; padding: 6px 8px; margin: 1px 0; font-size: 12px; gap: 8px; white-space: normal; overflow-wrap: anywhere; }
   .experience select option:hover, .experience select option:focus { background: var(--bg-raised); color: var(--text-main); }
   .experience select option:checked { background: var(--bg-raised); border-color: var(--border); color: var(--text-main); }
+  .experience select option:disabled { color: var(--text-faint); opacity: 0.45; cursor: not-allowed; pointer-events: none; }
   .experience select option::checkmark { color: var(--accent-strong); }
   .experience select optgroup { background: transparent; color: var(--text-faint); font-size: 10px; font-weight: 500; font-family: var(--font-mono); }
   .experience select optgroup > legend { padding: 6px 8px 3px; }

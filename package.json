@@ -4,6 +4,7 @@
   "description": "Decentralized BSV Satoshis Microtransaction Swap for AI Compute (Gemini Pro)",
   "main": "src/gateway/server.js",
   "scripts": {
+    "clean": "node scripts/clean.js",
     "gateway": "node src/gateway/server.js",
     "provider": "node src/provider/agent.js",
     "start": "node src/gateway/server.js",

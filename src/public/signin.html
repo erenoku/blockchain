@@ -199,10 +199,14 @@
             <!-- Step 1: sign in -->
             <section id="step-signin" class="auth-card">
               <h2>Connect BSV Desktop</h2>
-              <p class="card-desc">Your account is your BSV Desktop identity key. No password or email required: BSV Desktop signs a short cryptographic challenge when you approve it.</p>
+              <div class="auth-role-switch" role="tablist" aria-label="Sign-in mode">
+                <button type="button" role="tab" aria-selected="true" class="role-tab active" data-signin-role="customer">Customer</button>
+                <button type="button" role="tab" aria-selected="false" class="role-tab" data-signin-role="provider">Provider</button>
+              </div>
+              <p class="card-desc" id="signin-role-desc">Connect your BSV Desktop identity to compare providers, open a 2-of-2 payment channel, and pay per streamed chunk.</p>
 
               <button type="button" id="btn-signin" class="btn btn-primary auth-connect">
-                <span>Sign in with BSV Desktop</span>
+                <span id="signin-btn-label">Sign in as Customer (BSV Desktop)</span>
                 <span class="btn-arrow" aria-hidden="true">→</span>
               </button>
               <div id="signin-message" class="auth-message" role="status" aria-live="polite"></div>
@@ -270,12 +274,11 @@
                 <th scope="col" class="num">Input / 1k tok</th>
                 <th scope="col" class="num">Output / 1k tok</th>
                 <th scope="col" class="num">Min Query</th>
-                <th scope="col" class="num">24h Latency</th>
               </tr>
             </thead>
             <tbody id="landing-market-rows">
               <tr>
-                <td colspan="7" class="muted">Loading live marketplace book…</td>
+                <td colspan="6" class="muted">Loading live marketplace book…</td>
               </tr>
             </tbody>
           </table>

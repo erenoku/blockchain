@@ -5,6 +5,7 @@
 (function () {
   const el = (id) => document.getElementById(id);
   const next = new URLSearchParams(location.search).get('next');
+  let explicitRole = 'customer';
 
   function esc(str) {
     return String(str ?? '').replace(/[&<>"']/g, (c) => ({
@@ -30,7 +31,6 @@
     const startTime = performance.now();
     function step(now) {
       const elapsed = Math.min(1, (now - startTime) / duration);
-      // Cubic-bezier-like easeInOutCubic
       const eased = elapsed < 0.5
         ? 4 * elapsed * elapsed * elapsed
         : 1 - Math.pow(-2 * elapsed + 2, 3) / 2;
@@ -61,26 +61,60 @@
     animateScrollTo(el('contract-spec'), 860);
   });
 
+  // Segmented Customer / Provider selector on the sign-in card
+  document.querySelectorAll('[data-signin-role]').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      explicitRole = tab.dataset.signinRole;
+      document.querySelectorAll('[data-signin-role]').forEach((t) => {
+        const active = t === tab;
+        t.classList.toggle('active', active);
+        t.setAttribute('aria-selected', String(active));
+      });
+      const desc = el('signin-role-desc');
+      const label = el('signin-btn-label');
+      if (explicitRole === 'provider') {
+        if (desc) desc.textContent = 'Connect your BSV Desktop identity to register an OpenAI or Google Gemini API key, set satoshi rates, and receive payouts.';
+        if (label) label.textContent = 'Sign in as Provider (BSV Desktop)';
+      } else {
+        if (desc) desc.textContent = 'Connect your BSV Desktop identity to compare providers, open a 2-of-2 payment channel, and pay per streamed chunk.';
+        if (label) label.textContent = 'Sign in as Customer (BSV Desktop)';
+      }
+    });
+  });
+
   function message(id, text, color = 'var(--text-muted)') {
     const node = el(id);
     if (node) node.innerHTML = `<span style="color:${color}">${text}</span>`;
   }
 
-  function homeFor(user) {
-    if (next && next.startsWith('/') && !next.startsWith('//')) return next;
-    if (user.isProvider && !user.provider) return '/provider.html';
-    if (user.isCustomer) return '/market.html';
-    return '/provider.html';
+  function destinationFor(role) {
+    if (role === 'provider') return '/provider.html';
+    if (next && next.startsWith('/') && !next.startsWith('//') && next !== '/signin.html') {
+      return next;
+    }
+    return '/';
   }
 
-  function afterLogin(user) {
-    if (!user.isCustomer && !user.isProvider) {
-      el('step-signin').classList.add('hidden');
-      el('step-role').classList.remove('hidden');
-      animateScrollTo(el('start-workspace'), 600);
-      return;
+  function homeFor(user) {
+    if (next && next.startsWith('/') && !next.startsWith('//') && next !== '/signin.html') {
+      return next;
     }
-    location.href = homeFor(user);
+    if (user.isProvider && !user.isCustomer) return '/provider.html';
+    return '/';
+  }
+
+  function showRolePicker() {
+    el('step-signin').classList.add('hidden');
+    el('step-role').classList.remove('hidden');
+    animateScrollTo(el('start-workspace'), 600);
+  }
+
+  async function afterLogin(user, fromSignInClick = false) {
+    const role = explicitRole || (user.isProvider ? 'provider' : 'customer');
+    try {
+      await Session.api('/api/me/role', { method: 'POST', body: JSON.stringify({ role }) });
+    } catch (_) {}
+    location.href = destinationFor(role);
   }
 
   async function signIn() {
@@ -109,7 +143,7 @@
         method: 'POST',
         body: JSON.stringify({ identityKey, nonce: challenge.nonce, signature: signed.signature })
       });
-      afterLogin(await Session.me());
+      await afterLogin(await Session.me(), true);
     } catch (err) {
       message('signin-message', `⚠ ${err.message}`, 'var(--gold)');
     } finally {
@@ -164,7 +198,7 @@
       if (!providers.length) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="7" class="muted">
+            <td colspan="6" class="muted">
               No provider nodes are online right now. Sign in with BSV Desktop to register the first OpenAI or Google Gemini provider node.
             </td>
           </tr>`;
@@ -175,9 +209,6 @@
         const statusHtml = p.available
           ? '<span class="status-pill ok">Live</span>'
           : '<span class="status-pill off">Offline</span>';
-        const latency = p.stats && p.stats.avgLatencyMs
-          ? `${p.stats.avgLatencyMs} ms`
-          : '—';
         return `
           <tr>
             <td><strong>${esc(p.name)}</strong></td>
@@ -186,19 +217,29 @@
             <td class="num">${Number(p.pricing?.inputPer1k ?? 0).toLocaleString('en-US')} sats</td>
             <td class="num">${Number(p.pricing?.outputPer1k ?? 0).toLocaleString('en-US')} sats</td>
             <td class="num">${Number(p.pricing?.minSats ?? 0).toLocaleString('en-US')} sats</td>
-            <td class="num">${esc(latency)}</td>
           </tr>`;
       }).join('');
     } catch (_) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="7" class="muted">Connect BSV Desktop to view active marketplace providers.</td>
+          <td colspan="6" class="muted">Connect BSV Desktop to view active marketplace providers.</td>
         </tr>`;
     }
   }
 
   hydratePublicNetworkData();
 
-  // Already signed in: skip straight to the role step or home
-  Session.me().then(user => { if (user) afterLogin(user); }).catch(() => {});
+  // Already signed in: skip straight to destination or home
+  Session.me().then(user => {
+    if (!user) return;
+    if (next && next.startsWith('/') && !next.startsWith('//') && next !== '/signin.html') {
+      location.href = next;
+      return;
+    }
+    if (user.isProvider && !user.isCustomer) {
+      location.href = '/provider.html';
+    } else if (user.isCustomer) {
+      location.href = '/';
+    }
+  }).catch(() => {});
 })();

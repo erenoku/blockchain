@@ -59,28 +59,58 @@
   }
 
   function shortKey(key) {
+    if (!key) return '';
     return `${key.slice(0, 8)}…${key.slice(-6)}`;
   }
 
-  /** Links + signed-in pill, appended to the page's .nav-metrics bar. */
+  /** Render primary navigation and user status in the navbar */
   function renderNav(user) {
-    const bar = document.querySelector('.nav-metrics');
-    if (!bar || bar.querySelector('.session-nav')) return;
-    const links = [
-      ['/market.html', 'Marketplace'],
-      ['/', 'Ask AI'],
-      user.isProvider ? ['/provider.html', 'Provider Console'] : null,
-      ['/locked.html', 'Locked Funds']
-    ].filter(Boolean);
-    const nav = document.createElement('div');
-    nav.className = 'session-nav';
-    nav.innerHTML = links.map(([href, label]) =>
-      `<a class="metric-pill nav-link${location.pathname === href ? ' active' : ''}" href="${href}">${label}</a>`
-    ).join('') +
-      `<span class="metric-pill" title="${user.identityKey}"><span class="dot green"></span>${shortKey(user.identityKey)}</span>` +
-      '<button type="button" class="metric-pill nav-link" id="btn-logout">Sign out</button>';
-    bar.appendChild(nav);
-    nav.querySelector('#btn-logout').addEventListener('click', logout);
+    // 1. Ensure primary navigation tabs exist next to brand
+    const brand = document.querySelector('.nav-brand');
+    if (brand) {
+      let nav = document.getElementById('primary-nav');
+      if (!nav) {
+        nav = document.createElement('nav');
+        nav.id = 'primary-nav';
+        nav.className = 'nav-segmented';
+        brand.after(nav);
+      }
+      const links = [
+        ['/', 'Ask AI'],
+        ['/market.html', 'Marketplace'],
+        ['/provider.html', user.isProvider ? 'Provider Console' : 'Become a Provider'],
+        ['/locked.html', 'Locked Funds']
+      ];
+      const currentPath = location.pathname.replace(/\/index\.html$/, '/') || '/';
+      nav.innerHTML = links.map(([href, label]) => {
+        const isActive = (href === '/' && (currentPath === '/' || currentPath === '/index.html')) ||
+                         (href !== '/' && currentPath.startsWith(href));
+        return `<a class="nav-tab${isActive ? ' active' : ''}" href="${href}">${label}</a>`;
+      }).join('');
+    }
+
+    // 2. User account badge and sign out in user cluster
+    let cluster = document.getElementById('nav-user-cluster') || document.querySelector('.nav-user-cluster');
+    if (!cluster) {
+      const parent = document.querySelector('.nav-user-actions') || document.querySelector('.nav-metrics') || document.querySelector('.nav-inner');
+      if (parent) {
+        cluster = document.createElement('div');
+        cluster.id = 'nav-user-cluster';
+        cluster.className = 'nav-user-cluster';
+        parent.appendChild(cluster);
+      }
+    }
+
+    if (cluster) {
+      cluster.innerHTML = `
+        <span class="user-identity-badge" title="${user.identityKey}">
+          <span class="dot green"></span>
+          <span class="key-text">${shortKey(user.identityKey)}</span>
+        </span>
+        <button type="button" class="btn-logout" id="btn-logout" aria-label="Sign out">Sign out</button>
+      `;
+      cluster.querySelector('#btn-logout')?.addEventListener('click', logout);
+    }
   }
 
   window.Session = { api, wallet, me, requireLogin, logout, renderNav, shortKey };
