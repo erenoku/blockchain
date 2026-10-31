@@ -1,6 +1,6 @@
 /**
- * Sign-in and start page: BSV Desktop signs a one-time challenge, then the user picks a role.
- * Also hydrates live network metrics and marketplace rates from public gateway endpoints.
+ * Sign-in and start page: full-viewport splash screen transitions smoothly into the
+ * main start workspace where BSV Desktop signs a one-time challenge and the user picks a role.
  */
 (function () {
   const el = (id) => document.getElementById(id);
@@ -11,6 +11,55 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
   }
+
+  function animateScrollTo(targetEl, duration = 760) {
+    if (!targetEl) return;
+    const workspace = el('start-workspace');
+    if (workspace) workspace.classList.add('is-entered');
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      targetEl.scrollIntoView({ behavior: 'auto', block: 'start' });
+      return;
+    }
+
+    const startY = window.scrollY || window.pageYOffset;
+    const targetY = Math.max(0, targetEl.getBoundingClientRect().top + startY);
+    const delta = targetY - startY;
+    if (Math.abs(delta) < 2) return;
+
+    const startTime = performance.now();
+    function step(now) {
+      const elapsed = Math.min(1, (now - startTime) / duration);
+      // Cubic-bezier-like easeInOutCubic
+      const eased = elapsed < 0.5
+        ? 4 * elapsed * elapsed * elapsed
+        : 1 - Math.pow(-2 * elapsed + 2, 3) / 2;
+      window.scrollTo(0, startY + delta * eased);
+      if (elapsed < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  const workspace = el('start-workspace');
+  if (workspace && 'IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) workspace.classList.add('is-entered');
+      });
+    }, { threshold: 0.08 });
+    observer.observe(workspace);
+  } else if (workspace) {
+    workspace.classList.add('is-entered');
+  }
+
+  el('btn-get-started')?.addEventListener('click', () => {
+    animateScrollTo(el('start-workspace'), 780);
+  });
+
+  el('splash-terms-link')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    animateScrollTo(el('contract-spec'), 860);
+  });
 
   function message(id, text, color = 'var(--text-muted)') {
     const node = el(id);
@@ -28,6 +77,7 @@
     if (!user.isCustomer && !user.isProvider) {
       el('step-signin').classList.add('hidden');
       el('step-role').classList.remove('hidden');
+      animateScrollTo(el('start-workspace'), 600);
       return;
     }
     location.href = homeFor(user);
